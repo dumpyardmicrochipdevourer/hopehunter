@@ -81,7 +81,7 @@ docker compose up -d --build
 | GET | `/api/rules/{id}/preview` | Что правило найдёт сейчас, без откликов |
 | GET, POST | `/api/letters` | Список; создание |
 | PUT, DELETE | `/api/letters/{id}` | |
-| POST | `/api/letters/preview` | `{body}` → как текст уйдёт на настоящую вакансию |
+| POST | `/api/letters/preview` | `{body}` → как текст уйдёт, на условной вакансии |
 
 Ошибки: `{error, message, field}`. `message` — готовая фраза для человека, `field` — поле формы.
 Коды: `unauthorized` 401, `forbidden` 403, `validation` 400, `not_found` 404,

@@ -38,7 +38,7 @@ public class LetterCallbackHandler implements CallbackHandler {
 
     /** На чём показать предпросмотр, если настоящую вакансию достать не вышло. */
     private static final HhVacancy SAMPLE = new HhVacancy(
-            "0", "Java-разработчик", "Рога и копыта", "от 200 000 до 300 000 ₽", "Москва", "", false, false);
+            "0", "DevOps Engineer", "Amazon", "от 200 000 до 300 000 ₽", "Москва", "", false, false);
 
     private final Access access;
     private final LetterTemplateRepository letterTemplateRepository;

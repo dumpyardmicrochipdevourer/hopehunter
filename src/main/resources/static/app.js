@@ -301,8 +301,8 @@
     const dim = expired ? ' dim' : '';
 
     paint(`${brand}<div class="stack"><div class="shell">
-      ${expired ? `<div class="alert"><div><h2>hh отключился</h2><p>Сессия на hh.ru больше не действует.</p></div><a class="btn small" href="#/connect">переподключить</a></div>` : ''}
-      ${me.stopped && !expired ? `<div class="alert"><div><h2>стоп до завтра</h2><p>hh показал капчу или исчерпан суточный лимит. Завтра продолжу сам.</p></div></div>` : ''}
+      ${expired ? `<div class="alert"><div><h2>hh отключился</h2><p>сессия истекла</p></div><a class="btn small" href="#/connect">переподключить</a></div>` : ''}
+      ${me.stopped && !expired ? `<div class="alert"><div><h2>стоп до завтра</h2><p>капча или суточный лимит hh</p></div></div>` : ''}
       <div class="status"><span><small>статус</small><strong>${status}</strong></span>${switchBtn(!me.paused && !expired, 'Работа бота', 'pause', expired ? ' disabled' : '')}</div>
       <div class="block">
         <a class="kv${dim}" href="#/connect"><span>аккаунт</span><span>${esc(me.account.ownerName || (connected ? 'подключён' : 'не подключён'))}</span></a>
@@ -376,10 +376,10 @@
         <span class="label">шаги</span>
         <div class="block">${steps.map((text, i) =>
           `${i ? '<div class="hr inset"></div>' : ''}<div class="step"><i>${i + 1}</i><span>${text}</span></div>`).join('')}</div>
-        ${browser === 'safari' ? '<span class="item-sub" style="padding:0 4px">Меню разработчика включается в Настройки → Дополнения.</span>' : ''}
+        ${browser === 'safari' ? '<span class="item-sub" style="padding:0 4px">меню разработчика: Настройки → Дополнения</span>' : ''}
         <label class="sr" for="cookies">cookies</label>
         <textarea id="cookies" class="field${error ? ' invalid' : ''}" placeholder="вставьте сюда" style="height:150px" autocomplete="off" autocapitalize="off" spellcheck="false">${esc(value)}</textarea>
-        ${error ? `<span class="field-error">${esc(error)}</span>` : '<span class="item-sub" style="padding:0 4px">Пароль не нужен. Значение хранится зашифрованным.</span>'}
+        ${error ? `<span class="field-error">${esc(error)}</span>` : '<span class="item-sub" style="padding:0 4px">хранится зашифрованным</span>'}
         <div style="padding-top:6px"><button type="button" class="btn" data-act="submit"${busy ? ' disabled' : ''}>${busy ? 'проверяю на hh…' : 'подключить'}</button></div>
       </div>`);
     };
@@ -407,7 +407,7 @@
     };
     actions.disconnect = () => openSheet({
       title: 'отключить hh?',
-      text: 'Отклики остановятся. Правила и письма останутся.',
+      text: 'правила и письма останутся',
       confirm: { label: 'отключить', danger: true, run: async () => {
         try { await api('DELETE', '/account'); location.hash = '#/'; } catch (e) { toast(e.message, true); }
       } },
@@ -495,26 +495,27 @@
       paint(`${backBar('правило', '#/rules', id ? `<button type="button" class="icon-btn trail" data-act="remove" aria-label="Удалить">${ICON.trash}</button>` : '')}
         <div class="stack tight">
           <span class="label">что искать</span>
-          ${input('name', 'название правила')}
-          <span class="hint">Для себя, чтобы отличать правила. Работодатель его не видит.</span>
-          ${input('keywords', 'что искать на hh')}
-          <span class="hint">Как в строке поиска hh: <code>devops инженер</code>. Можно точнее: <code>devops OR sre</code>, <code>"team lead"</code>, <code>NOT стажёр</code>.</span>
+          ${input('name', 'название правила (для себя)')}
+          ${input('keywords', rule.titleOnly ? 'ключевые слова в названии вакансии' : 'ключевые слова')}
+          <span class="hint">например: <code>devops OR sre</code></span>
           <div class="row">
             <button type="button" class="field${rule.areaId ? '' : ' placeholder'}" data-act="area">${esc(rule.areaName || (rule.areaId ? `регион ${rule.areaId}` : 'город'))}</button>
             <div><label class="sr" for="f-salaryFrom">зарплата от</label><input id="f-salaryFrom" class="field${bad('salaryFrom')}" type="text" inputmode="numeric" placeholder="зарплата от" value="${rule.salaryFrom ? money(rule.salaryFrom) : ''}" data-field="salaryFrom" autocomplete="off"></div>
           </div>
           ${errorLine('salaryFrom')}${errorLine('areaId')}
           ${toggle('onlyWithSalary', 'только с зарплатой')}
-          ${toggle('titleOnly', 'искать только в названии')}
-          ${input('skills', 'что должно быть в описании')}
-          <span class="hint">Стек и навыки, которые ищем в тексте вакансии: <code>kubernetes OR k8s</code>. Пусто - не важно.</span>
+          ${toggle('titleOnly', 'только в названии')}
+          ${input('skills', 'ключевые слова в описании')}
+          <span class="hint">например: <code>kubernetes OR k8s</code></span>
           ${pick('workFormats', 'формат работы', chosen(info.workFormats, rule.workFormats, 'любой'), 'formats')}
           ${pick('employmentForms', 'занятость', chosen(info.employmentForms, rule.employmentForms, 'любая'), 'employment')}
           ${pick('experience', 'опыт', experienceName(), 'experience')}
           ${pick('periodDays', 'свежесть', period(rule.periodDays), 'period')}
           ${pick('labels', 'ещё фильтры', rule.labels.length ? `выбрано: ${rule.labels.length}` : 'нет', 'labels')}
-          ${input('minusWords', 'минус-слова через запятую')}
-          ${input('companyBlacklist', 'стоп-лист компаний через запятую')}
+          ${input('minusWords', 'минус-слова')}
+          <span class="hint">например: <code>senior, lead</code></span>
+          ${input('companyBlacklist', 'стоп-лист компаний')}
+          <span class="hint">например: <code>аутстафф, агентство</code></span>
           <span class="label">чем откликаться</span>
           ${pick('resumeHash', 'резюме', rule.resumeTitle || 'не выбрано', 'resume')}
           ${pick('letterTemplateId', 'письмо', letterName(), 'letter')}
@@ -613,9 +614,9 @@
         draw();
       },
     });
-    actions.formats = () => multiPick('формат работы', 'Можно несколько. Ничего не отмечено - подойдёт любой.', info.workFormats, 'workFormats');
-    actions.employment = () => multiPick('занятость', 'Можно несколько. Ничего не отмечено - подойдёт любая.', info.employmentForms, 'employmentForms');
-    actions.labels = () => multiPick('ещё фильтры', 'Каждый отмеченный сужает выдачу.', info.labels, 'labels');
+    actions.formats = () => multiPick('формат работы', 'можно несколько', info.workFormats, 'workFormats');
+    actions.employment = () => multiPick('занятость', 'можно несколько', info.employmentForms, 'employmentForms');
+    actions.labels = () => multiPick('ещё фильтры', null, info.labels, 'labels');
     actions.period = () => openSheet({
       title: 'свежесть вакансий',
       options: [{ label: 'любая', value: null, checked: !rule.periodDays }]
@@ -630,7 +631,7 @@
     });
     actions.letter = () => openSheet({
       title: 'письмо',
-      text: letterList.length ? null : 'Шаблонов пока нет - их пишут во вкладке «письма».',
+      text: letterList.length ? null : 'писем нет - вкладка «письма»',
       options: [{ label: 'без письма', value: null, checked: !rule.letterTemplateId }]
         .concat(letterList.map((l) => ({ label: l.name, value: l.id, checked: rule.letterTemplateId === l.id }))),
       onPick: (option) => { rule.letterTemplateId = option.value; draw(); },
@@ -638,14 +639,14 @@
     actions.mode = () => openSheet({
       title: 'режим',
       options: [
-        { label: 'спрашивать меня', sub: 'присылаю вакансию, откликаюсь по кнопке', value: 'CONFIRM', checked: rule.mode === 'CONFIRM' },
-        { label: 'откликаться самому', sub: 'откликаюсь сразу и сообщаю', value: 'AUTO', checked: rule.mode === 'AUTO' },
+        { label: 'спрашивать меня', sub: 'отклик по кнопке', value: 'CONFIRM', checked: rule.mode === 'CONFIRM' },
+        { label: 'откликаться самому', sub: 'отклик сразу', value: 'AUTO', checked: rule.mode === 'AUTO' },
       ],
       onPick: (option) => { rule.mode = option.value; draw(); },
     });
     actions.limit = () => openSheet({
       title: 'лимит в день',
-      text: 'Чем меньше, тем спокойнее для аккаунта. Больше 200 в сутки hh не принимает сам.',
+      text: 'максимум hh - 200 в сутки',
       options: [10, 20, 30, 50, 100, 200].filter((n) => n <= info.maxDailyLimit)
         .map((n) => ({ label: String(n), value: n, checked: rule.dailyLimit === n })),
       onPick: (option) => { rule.dailyLimit = option.value; draw(); },
@@ -664,7 +665,7 @@
       if (stale(seq)) return;
       openSheet({
         title: 'резюме',
-        text: resumes.length ? null : 'На hh нет ни одного резюме. Создайте его на сайте.',
+        text: resumes.length ? null : 'на hh нет резюме',
         options: resumes.map((r) => ({ label: r.title, value: r, checked: rule.resumeHash === r.hash })),
         onPick: (option) => { rule.resumeHash = option.value.hash; rule.resumeTitle = option.value.title; draw(); },
       });
@@ -695,7 +696,7 @@
       <div class="stack">${list.length ? list.map((v, i) =>
         `<a class="item link" href="${esc(v.url)}" data-act="open" data-i="${i}"><span class="item-title wrap">${esc(v.name)}</span><span class="item-sub">${esc([v.company, v.city].filter(Boolean).join(' · '))}</span>
           <div class="salary"><span>${esc(v.salary || 'не указана')}</span>${v.hasTest ? '<span class="badge">с тестом</span>' : ''}</div></a>`).join('')
-        : '<span class="item-sub" style="padding:0 4px">Это первая страница выдачи hh. Попробуйте ослабить фильтры или искать не только в названии.</span>'}</div>`);
+        : '<span class="item-sub" style="padding:0 4px">ослабьте фильтры</span>'}</div>`);
     actions.retry = route;
     // Ссылки на hh открываем снаружи: внутри мини-приложения чужой сайт заменил бы его собой.
     actions.open = (el) => {
@@ -746,12 +747,12 @@
           <input id="f-name" class="field${invalid && invalid.field === 'name' ? ' invalid' : ''}" type="text" placeholder="название" value="${esc(letter.name)}" data-field="name" autocomplete="off">
           ${invalid && invalid.field === 'name' ? `<span class="field-error">${esc(invalid.message)}</span>` : ''}
           <label class="sr" for="f-body">текст письма</label>
-          <textarea id="f-body" class="field${invalid && invalid.field === 'body' ? ' invalid' : ''}" style="height:236px" placeholder="Здравствуйте! Откликаюсь на [vacancy_name] в [company_name]…" data-field="body">${esc(letter.body)}</textarea>
+          <textarea id="f-body" class="field${invalid && invalid.field === 'body' ? ' invalid' : ''}" style="height:236px" placeholder="текст письма" data-field="body">${esc(letter.body)}</textarea>
           <span id="body-error" class="field-error"${invalid && invalid.field === 'body' ? '' : ' hidden'}>${invalid && invalid.field === 'body' ? esc(invalid.message) : ''}</span>
           <div class="chips">${info.aliases.map((a) =>
             `<button type="button" class="chip" data-act="alias" data-name="${a.name}" title="${esc(a.description)}">[${a.name}]</button>`).join('')}</div>
           <span class="label">предпросмотр</span>
-          <div id="preview" class="preview">${highlighted() || '<span>появится, когда напишете текст</span>'}</div>
+          <div id="preview" class="preview">${highlighted() || '<span>—</span>'}</div>
           <div style="padding-top:10px"><button type="button" class="btn" data-act="save"${busy ? ' disabled' : ''}>${busy ? 'сохраняю…' : 'сохранить'}</button></div>
         </div>`);
     };
@@ -763,7 +764,7 @@
         const mine = ++previewSeq;
         const errorEl = document.getElementById('body-error');
         const previewEl = document.getElementById('preview');
-        if (!letter.body.trim()) { if (previewEl) previewEl.innerHTML = '<span>появится, когда напишете текст</span>'; return; }
+        if (!letter.body.trim()) { if (previewEl) previewEl.innerHTML = '<span>—</span>'; return; }
         try {
           const result = await api('POST', '/letters/preview', { body: letter.body });
           if (mine !== previewSeq || stale(seq)) return;
