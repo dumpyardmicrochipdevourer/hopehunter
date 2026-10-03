@@ -278,9 +278,9 @@ public class DialogHandler {
                 rule.setArea(area.get(), null);
             }
             case RULE_LIMIT -> {
-                Optional<Integer> limit = number(text, 1, 100);
+                Optional<Integer> limit = number(text, 1, ResponseRule.MAX_DAILY_LIMIT);
                 if (limit.isEmpty()) {
-                    return MenuScreens.retry("Нужно число от 1 до 100.", back);
+                    return MenuScreens.retry("Нужно число от 1 до " + ResponseRule.MAX_DAILY_LIMIT + ".", back);
                 }
                 rule.setDailyLimit(limit.get());
             }

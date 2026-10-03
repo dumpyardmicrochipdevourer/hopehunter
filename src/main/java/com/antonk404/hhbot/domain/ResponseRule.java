@@ -27,7 +27,8 @@ import java.util.Set;
 public class ResponseRule {
 
     public static final int DEFAULT_DAILY_LIMIT = 30;
-    public static final int MAX_DAILY_LIMIT = 100;
+    /** Выше смысла нет: сам hh принимает от аккаунта не больше 200 откликов в сутки. */
+    public static final int MAX_DAILY_LIMIT = 200;
     public static final int DEFAULT_INTERVAL_MINUTES = 15;
 
     /** Как часто правило можно проверять. Меньше 15 минут нет: чаще сканер всё равно не ходит. */

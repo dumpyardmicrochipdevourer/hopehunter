@@ -107,13 +107,20 @@ class RuleServiceTest {
     @Test
     void rejectsOutOfRangeValuesByField() {
         assertEquals("dailyLimit", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, data("java", "java", "hash", 101))).getField());
+                () -> service.update(user, 7L, data("java", "java", "hash", 201))).getField());
         assertEquals("name", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, data(" ", "java", "hash", 10))).getField());
         assertEquals("experience", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, with(null, "tenYears", null, null))).getField());
         assertEquals("salaryFrom", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, with(-5, null, null, null))).getField());
+    }
+
+    @Test
+    void limitGoesUpToTwoHundred() {
+        service.update(user, 7L, data("java", "java", "hash", 200));
+
+        assertEquals(200, existing.getDailyLimit());
     }
 
     @Test

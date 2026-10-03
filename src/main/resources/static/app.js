@@ -474,8 +474,10 @@
       paint(`${backBar('правило', '#/rules', id ? `<button type="button" class="icon-btn trail" data-act="remove" aria-label="Удалить">${ICON.trash}</button>` : '')}
         <div class="stack tight">
           <span class="label">что искать</span>
-          ${input('name', 'название')}
-          ${input('keywords', 'запрос')}
+          ${input('name', 'название правила')}
+          <span class="hint">Для себя, чтобы отличать правила. Работодатель его не видит.</span>
+          ${input('keywords', 'что искать на hh')}
+          <span class="hint">Как в строке поиска hh: <code>devops инженер</code>. Можно точнее: <code>devops OR sre</code>, <code>"team lead"</code>, <code>NOT стажёр</code>.</span>
           <div class="row">
             <button type="button" class="field${rule.areaId ? '' : ' placeholder'}" data-act="area">${esc(rule.areaName || (rule.areaId ? `регион ${rule.areaId}` : 'город'))}</button>
             <div><label class="sr" for="f-salaryFrom">зарплата от</label><input id="f-salaryFrom" class="field${bad('salaryFrom')}" type="text" inputmode="numeric" placeholder="зарплата от" value="${rule.salaryFrom ? money(rule.salaryFrom) : ''}" data-field="salaryFrom" autocomplete="off"></div>
@@ -608,8 +610,8 @@
     });
     actions.limit = () => openSheet({
       title: 'лимит в день',
-      text: 'Чем меньше, тем спокойнее для аккаунта.',
-      options: [5, 10, 20, 30, 50].filter((n) => n <= info.maxDailyLimit)
+      text: 'Чем меньше, тем спокойнее для аккаунта. Больше 200 в сутки hh не принимает сам.',
+      options: [10, 20, 30, 50, 100, 200].filter((n) => n <= info.maxDailyLimit)
         .map((n) => ({ label: String(n), value: n, checked: rule.dailyLimit === n })),
       onPick: (option) => { rule.dailyLimit = option.value; draw(); },
     });

@@ -26,7 +26,7 @@ body {
   overscroll-behavior-y: none;
 }
 a { color: var(--text); text-decoration: none; }
-button { font: inherit; color: inherit; border: 0; padding: 0; background: none; cursor: pointer; }
+button { font: inherit; color: inherit; border: 0; padding: 0; background: none; cursor: pointer; appearance: none; -webkit-appearance: none; }
 input, textarea { font: inherit; color: var(--text); border: 0; outline: 0; background: var(--block); }
 input::placeholder, textarea::placeholder { color: var(--muted); }
 :focus-visible { outline: 2px solid var(--disabled); outline-offset: 2px; }
@@ -87,10 +87,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .alert p { margin: 0; font-size: 14px; color: var(--muted); }
 
 /* Переключатель */
-.switch { position: relative; flex-shrink: 0; width: 50px; height: 30px; border-radius: 999px; background: var(--line); transition: background .15s; }
-.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; background: var(--muted); border-radius: 999px; transition: transform .15s, background .15s; }
-.switch[aria-checked="true"] { background: var(--text); }
-.switch[aria-checked="true"]::after { transform: translateX(20px); background: #000; }
+.switch { position: relative; flex-shrink: 0; width: 50px; height: 30px; border-radius: 999px; background-color: #2E2E32; transition: background-color .15s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; background-color: #86868B; border-radius: 999px; transition: transform .15s, background-color .15s; }
+/* Цвета здесь числами, а не переменными: во встроенном браузере Telegram на macOS включённый
+   переключатель с var() оставался тёмным, и чёрная ручка на нём терялась. */
+.switch[aria-checked="true"] { background-color: #F5F5F7; }
+.switch[aria-checked="true"]::after { transform: translateX(20px); background-color: #000000; }
 .switch:disabled { opacity: .5; }
 
 /* Шаги */
@@ -123,6 +125,8 @@ button.field { background: var(--block); overflow: hidden; text-overflow: ellips
 button.field.placeholder { color: var(--muted); }
 textarea.field { height: auto; padding: 16px 18px; resize: none; font-size: 15px; font-weight: 400; line-height: 1.6; }
 .field.invalid, .pick.invalid { box-shadow: 0 0 0 3px var(--error); }
+.hint { padding: 0 4px 4px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.hint code { font-family: var(--mono); font-size: 12px; color: var(--text); }
 .field-error { padding: 0 4px; font-size: 13px; line-height: 1.45; color: var(--error); }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; padding: 0 12px 0 18px; background: var(--block); border-radius: 16px; font-size: 15px; }
 .pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 50px; width: 100%; padding: 0 18px; background: var(--block); border-radius: 16px; font-size: 15px; }
