@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hhbot
+      POSTGRES_USER: hhbot
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hhbot -d hhbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    # С диском: в redis лежат дневные счётчики откликов и список уже показанных вакансий.
+    # Потерять их при рестарте - значит откликнуться сверх лимита и прислать всё по второму разу.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      BOT_ADMIN_USERNAMES: ${BOT_ADMIN_USERNAMES:-microchipdddd}
+      DB_URL: jdbc:postgresql://db:5432/hhbot
+      DB_USER: hhbot
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      HH_COOKIE_KEY: ${HH_COOKIE_KEY}
+
+volumes:
+  postgres_data:
+  redis_data:
