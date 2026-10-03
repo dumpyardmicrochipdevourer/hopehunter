@@ -85,7 +85,8 @@
 
   class ApiError extends Error {
     constructor(status, body) {
-      super(body.message || 'что-то пошло не так');
+      // Без message ответ пришёл не от нашего сервера (прокси, туннель) - код помогает понять, от кого.
+      super(body.message || `что-то пошло не так (${status || 'нет связи'})`);
       this.status = status;
       this.code = body.error || 'unknown';
       this.field = body.field || null;

@@ -136,7 +136,7 @@ class ApiTest {
         mvc.perform(get("/api/rules/2/preview").header("Authorization", auth))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.error").value("hh_session_expired"));
         mvc.perform(get("/api/rules/3/preview").header("Authorization", auth))
-                .andExpect(status().isBadGateway()).andExpect(jsonPath("$.error").value("hh_unavailable"));
+                .andExpect(status().isFailedDependency()).andExpect(jsonPath("$.error").value("hh_unavailable"));
     }
 
     @Test
