@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
@@ -40,6 +41,8 @@ public class HhWebGateway implements HhGateway {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private static final int MAX_REDIRECTS = 4;
+
     private final HhHttp http;
     private final String baseUrl;
     private final String userAgent;
@@ -55,7 +58,7 @@ public class HhWebGateway implements HhGateway {
 
     @Override
     public HhProfile profile(HhSessionCookies cookies) {
-        HhHttp.Response response = http.get(baseUrl + "/applicant/resumes", headers(cookies));
+        HhHttp.Response response = getPage(baseUrl + "/applicant/resumes", headers(cookies));
         JsonNode state = InitialState.parse(pageOrThrow(response, true));
 
         List<HhResume> resumes = new ArrayList<>();
@@ -74,13 +77,24 @@ public class HhWebGateway implements HhGateway {
         if (resumes.isEmpty() && account.path("firstName").isNull() && account.path("email").isNull()) {
             throw new HhSessionExpiredException();
         }
+        if (resumes.isEmpty()) {
+            // Залогинен, а резюме не нашлось: либо их правда нет, либо сайт переименовал поле.
+            // Имена полей (без значений) в логе отличают одно от другого без повторного захода.
+            List<String> candidates = new ArrayList<>();
+            state.fieldNames().forEachRemaining(field -> {
+                if (field.toLowerCase(Locale.ROOT).contains("resume")) {
+                    candidates.add(field);
+                }
+            });
+            logger.warn("no resumes parsed from hh profile page; resume-like state fields: {}", candidates);
+        }
         String name = (account.path("firstName").asText("") + " " + account.path("lastName").asText("")).strip();
         return new HhProfile(name, resumes);
     }
 
     @Override
     public List<HhVacancy> search(HhSessionCookies cookies, SearchQuery query, int page) {
-        HhHttp.Response response = http.get(baseUrl + "/search/vacancy?" + searchParams(query, page), headers(cookies));
+        HhHttp.Response response = getPage(baseUrl + "/search/vacancy?" + searchParams(query, page), headers(cookies));
         JsonNode result = InitialState.parse(pageOrThrow(response, false)).path("vacancySearchResult");
         if (result.isMissingNode()) {
             throw new HhException("hh search page has no vacancySearchResult");
@@ -242,6 +256,34 @@ public class HhWebGateway implements HhGateway {
         }
         logger.warn("apply to vacancy {}: status {} body {}", vacancyId, response.status(), clip(body));
         return new ApplyResult.Failed("hh ответил " + response.status());
+    }
+
+    /**
+     * GET со следованием редиректам внутри hh.
+     *
+     * <p>Транспорт редиректам не следует нарочно: редирект на страницу входа - признак мёртвой
+     * сессии, и его нужно увидеть. Но сам hh редиректит и живых пользователей - со старого адреса
+     * страницы на новый, на региональный поддомен. Такие переходы проходим сами, а на входе
+     * останавливаемся и отдаём ответ как есть.
+     */
+    private HhHttp.Response getPage(String url, Map<String, String> headers) {
+        String current = url;
+        for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
+            HhHttp.Response response = http.get(current, headers);
+            boolean redirect = response.status() >= 300 && response.status() < 400 && response.location() != null;
+            if (!redirect || redirectsToLogin(response)) {
+                return response;
+            }
+            URI next = URI.create(current).resolve(response.location());
+            String host = next.getHost() == null ? "" : next.getHost();
+            // Куки сессии уходят только на hh: редирект наружу - не то место, куда их нести.
+            if (!host.equals("hh.ru") && !host.endsWith(".hh.ru")) {
+                throw new HhException("hh redirected off-site to " + host);
+            }
+            logger.info("hh redirect: {} -> {}", URI.create(current).getPath(), next.getPath());
+            current = next.toString();
+        }
+        throw new HhException("hh redirect loop at " + URI.create(current).getPath());
     }
 
     private Map<String, String> headers(HhSessionCookies cookies) {

@@ -85,7 +85,7 @@ docker compose up -d --build
 
 Ошибки: `{error, message, field}`. `message` — готовая фраза для человека, `field` — поле формы.
 Коды: `unauthorized` 401, `forbidden` 403, `validation` 400, `not_found` 404,
-`hh_session_expired` 409 (вести на подключение аккаунта), `hh_unavailable` 502.
+`hh_session_expired` 409 (вести на подключение аккаунта), `hh_unavailable` 424.
 
 ## Что проверено, а что нет
 

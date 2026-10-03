@@ -50,7 +50,9 @@ public class ApiExceptionHandler {
     @ExceptionHandler(HhException.class)
     public ResponseEntity<ApiError> hhDown(HhException e) {
         logger.warn("hh call failed: {}", e.getMessage());
-        return error(HttpStatus.BAD_GATEWAY, "hh_unavailable", "hh сейчас не отвечает. Попробуй чуть позже.", null);
+        // 424, а не 502: ответы 502 и 504 обратные прокси и туннели подменяют своей страницей,
+        // и приложение вместо этой фразы получало чужой html.
+        return error(HttpStatus.FAILED_DEPENDENCY, "hh_unavailable", "hh сейчас не отвечает. Попробуй чуть позже.", null);
     }
 
     private static ResponseEntity<ApiError> error(HttpStatus status, String code, String message, String field) {
