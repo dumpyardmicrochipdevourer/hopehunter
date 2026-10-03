@@ -41,6 +41,9 @@ public class VacancyScanner {
      */
     static final int MAX_CARDS_PER_SCAN = 10;
 
+    /** Сколько страниц выдачи читать за проход: три страницы - это 150 вакансий, больше дневного лимита не нужно. */
+    static final int MAX_PAGES = 3;
+
     private final ResponseRuleRepository responseRuleRepository;
     private final ApplicationLogRepository applicationLogRepository;
     private final WhitelistService whitelistService;
@@ -118,20 +121,39 @@ public class VacancyScanner {
         }
         store.set(scannedKey, "1", Duration.ofMinutes(rule.getIntervalMinutes()).minusMinutes(2));
 
-        List<HhVacancy> vacancies;
-        try {
-            vacancies = hhGateway.search(cookies.get(), query(rule), 0);
-        } catch (HhSessionExpiredException e) {
-            expire(user);
-            return;
-        } catch (HhException e) {
-            logger.warn("search for rule {} failed: {}", rule.getId(), e.getMessage());
-            return;
-        }
-
         String seenKey = "seen:" + user.getId();
-        int applied = 0;
-        int cards = 0;
+        Progress progress = new Progress();
+        for (int page = 0; page < MAX_PAGES; page++) {
+            List<HhVacancy> vacancies;
+            try {
+                vacancies = hhGateway.search(cookies.get(), query(rule), page);
+            } catch (HhSessionExpiredException e) {
+                expire(user);
+                return;
+            } catch (HhException e) {
+                logger.warn("search for rule {} page {} failed: {}", rule.getId(), page, e.getMessage());
+                return;
+            }
+            // Дальше идём, только если вся страница оказалась новой: значит, непросмотренное
+            // продолжается глубже. В обычном проходе первая же страница упирается в уже виденное,
+            // и лишних запросов к hh нет; глубоко уходит только первый проход нового правила.
+            boolean allNew = !vacancies.isEmpty()
+                    && vacancies.stream().noneMatch(vacancy -> store.isMember(seenKey, vacancy.id()));
+            if (!scanPage(user, rule, vacancies, seenKey, progress) || !allNew) {
+                return;
+            }
+        }
+    }
+
+    /** Счётчики одного прохода по правилу - общие на все его страницы. */
+    private static final class Progress {
+        private int applied;
+        private int cards;
+    }
+
+    /** @return {@code false}, если проход по правилу нужно закончить: упёрлись в лимит или в отказ hh */
+    private boolean scanPage(BotUser user, ResponseRule rule, List<HhVacancy> vacancies, String seenKey,
+                             Progress progress) {
         for (HhVacancy vacancy : vacancies) {
             if (store.isMember(seenKey, vacancy.id())) {
                 continue;
@@ -144,28 +166,28 @@ public class VacancyScanner {
             }
 
             if (rule.getMode() == RuleMode.CONFIRM && !vacancy.hasTest()) {
-                if (cards >= MAX_CARDS_PER_SCAN) {
-                    break;
+                if (progress.cards >= MAX_CARDS_PER_SCAN) {
+                    return false;
                 }
                 listener.found(user, rule, vacancy);
                 store.addToSet(seenKey, vacancy.id(), SEEN_TTL);
-                cards++;
+                progress.cards++;
                 continue;
             }
 
             // Не помечаем просмотренной: вакансия, на которую сегодня не хватило лимита, должна
             // дождаться следующего прохода, а не пропасть.
-            if (rateLimiter.exhausted(rule) || applied >= maxAppliesPerScan) {
-                break;
+            if (rateLimiter.exhausted(rule) || progress.applied >= maxAppliesPerScan) {
+                return false;
             }
-            if (applied > 0) {
+            if (progress.applied > 0) {
                 pauser.pause();
             }
             ApplyResult result = applyService.apply(user, rule, vacancy);
             store.addToSet(seenKey, vacancy.id(), SEEN_TTL);
             switch (result) {
                 case ApplyResult.Sent sent -> {
-                    applied++;
+                    progress.applied++;
                     listener.applied(user, rule, vacancy);
                 }
                 case ApplyResult.NeedsTest test -> listener.manual(user, rule, vacancy, "нужно пройти тест");
@@ -174,18 +196,19 @@ public class VacancyScanner {
                 }
                 case ApplyResult.LimitReached limit -> {
                     listener.stopped(user, "hh больше не принимает отклики сегодня");
-                    return;
+                    return false;
                 }
                 case ApplyResult.Captcha captcha -> {
                     listener.stopped(user, "hh показал капчу");
-                    return;
+                    return false;
                 }
                 case ApplyResult.SessionExpired expired -> {
                     listener.sessionExpired(user);
-                    return;
+                    return false;
                 }
             }
         }
+        return true;
     }
 
     /**
@@ -207,7 +230,8 @@ public class VacancyScanner {
     }
 
     static SearchQuery query(ResponseRule rule) {
-        return new SearchQuery(rule.getKeywords(), rule.isTitleOnly(), rule.getAreaId(),
-                rule.getSalaryFrom(), rule.isOnlyWithSalary(), rule.getExperience(), rule.isRemoteOnly());
+        return new SearchQuery(rule.getKeywords(), rule.isTitleOnly(), rule.getSkills(), rule.getAreaId(),
+                rule.getSalaryFrom(), rule.isOnlyWithSalary(), rule.getExperience(), rule.getWorkFormats(),
+                rule.getEmploymentForms(), rule.getLabels(), rule.getPeriodDays());
     }
 }

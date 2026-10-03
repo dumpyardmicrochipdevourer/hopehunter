@@ -34,6 +34,17 @@ public class ResponseRule {
     /** Как часто правило можно проверять. Меньше 15 минут нет: чаще сканер всё равно не ходит. */
     public static final List<Integer> INTERVALS_MINUTES = List.of(15, 30, 60, 180);
 
+    /** Форматы работы, как их называет поиск hh. */
+    public static final List<String> WORK_FORMATS = List.of("REMOTE", "HYBRID", "ON_SITE", "FIELD_WORK");
+
+    public static final List<String> EMPLOYMENT_FORMS = List.of("FULL", "PART", "PROJECT", "FLY_IN_FLY_OUT");
+
+    /** Метки-фильтры hh: без агентств, аккредитованные ИТ-компании, меньше 10 откликов, стажировка. */
+    public static final List<String> LABELS = List.of("not_from_agency", "accredited_it", "low_performance", "internship");
+
+    /** За сколько дней брать вакансии. */
+    public static final List<Integer> PERIODS_DAYS = List.of(1, 3, 7, 30);
+
     /** Коды опыта, которые понимает поиск hh. */
     public static final Set<String> EXPERIENCE_CODES =
             Set.of("noExperience", "between1And3", "between3And6", "moreThan6");
@@ -51,6 +62,14 @@ public class ResponseRule {
     /** Текст запроса как в строке поиска hh; язык запросов hh (OR, NOT, кавычки) работает. */
     @Column(length = 512)
     private String keywords;
+
+    /**
+     * Что должно быть в описании вакансии - тем же языком запросов: {@code kubernetes OR k8s}.
+     * Отдельно от ключевых слов, потому что ищется в другом месте: должность - в названии,
+     * стек - в тексте.
+     */
+    @Column(length = 512)
+    private String skills;
 
     /** Через запятую. Вакансия с любым из этих слов в названии отбрасывается. */
     @Column(name = "minus_words", length = 512)
@@ -85,8 +104,28 @@ public class ResponseRule {
     @Column(length = 16)
     private String experience;
 
+    /**
+     * Осталась от времён, когда формат работы был одним флажком. Колонка NOT NULL, поэтому поле
+     * приходится держать и писать; смысл теперь несёт {@link #workFormats}.
+     */
     @Column(name = "remote_only", nullable = false)
     private boolean remoteOnly = false;
+
+    /** Коды из {@link #WORK_FORMATS} через запятую; пусто - любой формат. */
+    @Column(name = "work_formats", length = 64)
+    private String workFormats;
+
+    /** Коды из {@link #EMPLOYMENT_FORMS} через запятую; пусто - любая занятость. */
+    @Column(name = "employment_forms", length = 64)
+    private String employmentForms;
+
+    /** Коды из {@link #LABELS} через запятую. */
+    @Column(length = 128)
+    private String labels;
+
+    /** Не старше стольких дней; null - без ограничения. */
+    @Column(name = "period_days")
+    private Integer periodDays;
 
     /** Через запятую, подстроки названий компаний. */
     @Column(name = "company_blacklist", length = 1024)
@@ -235,12 +274,61 @@ public class ResponseRule {
         this.experience = experience;
     }
 
+    public String getSkills() {
+        return skills;
+    }
+
+    public void setSkills(String skills) {
+        this.skills = skills;
+    }
+
+    /** Правила, созданные до появления списка форматов, читаются по старому флажку. */
+    public List<String> getWorkFormats() {
+        if (workFormats == null && remoteOnly) {
+            return List.of("REMOTE");
+        }
+        return split(workFormats);
+    }
+
+    public void setWorkFormats(List<String> formats) {
+        this.workFormats = String.join(",", formats);
+        this.remoteOnly = formats.equals(List.of("REMOTE"));
+    }
+
     public boolean isRemoteOnly() {
-        return remoteOnly;
+        return getWorkFormats().equals(List.of("REMOTE"));
     }
 
     public void setRemoteOnly(boolean remoteOnly) {
-        this.remoteOnly = remoteOnly;
+        setWorkFormats(remoteOnly ? List.of("REMOTE") : List.of());
+    }
+
+    public List<String> getEmploymentForms() {
+        return split(employmentForms);
+    }
+
+    public void setEmploymentForms(List<String> forms) {
+        this.employmentForms = String.join(",", forms);
+    }
+
+    public List<String> getLabels() {
+        return split(labels);
+    }
+
+    public void setLabels(List<String> labels) {
+        this.labels = String.join(",", labels);
+    }
+
+    public Integer getPeriodDays() {
+        return periodDays;
+    }
+
+    public void setPeriodDays(Integer periodDays) {
+        this.periodDays = periodDays;
+    }
+
+    private static List<String> split(String csv) {
+        return csv == null || csv.isBlank() ? List.of() : List.of(csv.split(","));
     }
 
     public String getCompanyBlacklist() {

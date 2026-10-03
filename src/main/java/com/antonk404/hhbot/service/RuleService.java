@@ -108,7 +108,14 @@ public class RuleService {
         rule.setMinusWords(text("minusWords", data.minusWords()));
         rule.setCompanyBlacklist(text("companyBlacklist", data.companyBlacklist()));
         rule.setTitleOnly(data.titleOnly() == null || data.titleOnly());
-        rule.setRemoteOnly(Boolean.TRUE.equals(data.remoteOnly()));
+        rule.setSkills(text("skills", data.skills()));
+        rule.setWorkFormats(codes("workFormats", data.workFormats(), ResponseRule.WORK_FORMATS));
+        rule.setEmploymentForms(codes("employmentForms", data.employmentForms(), ResponseRule.EMPLOYMENT_FORMS));
+        rule.setLabels(codes("labels", data.labels(), ResponseRule.LABELS));
+        if (data.periodDays() != null && !ResponseRule.PERIODS_DAYS.contains(data.periodDays())) {
+            throw new ValidationException("periodDays", "Срок - один из: " + ResponseRule.PERIODS_DAYS + " дней.");
+        }
+        rule.setPeriodDays(data.periodDays());
         rule.setMode(data.mode() == null ? RuleMode.CONFIRM : data.mode());
 
         if (data.areaId() != null && data.areaId() <= 0) {
@@ -196,6 +203,19 @@ public class RuleService {
             throw new ValidationException(field, "Не длиннее " + MAX_TEXT + " символов.");
         }
         return value.strip();
+    }
+
+    /** Коды в том порядке, в каком их знает hh, без повторов; незнакомый код - ошибка, а не молчаливый пропуск. */
+    private static List<String> codes(String field, List<String> values, List<String> allowed) {
+        if (values == null) {
+            return List.of();
+        }
+        for (String value : values) {
+            if (!allowed.contains(value)) {
+                throw new ValidationException(field, "Неизвестное значение: " + value + ".");
+            }
+        }
+        return allowed.stream().filter(values::contains).toList();
     }
 
     private static boolean blank(String value) {

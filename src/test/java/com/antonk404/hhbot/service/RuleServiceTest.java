@@ -60,14 +60,20 @@ class RuleServiceTest {
     }
 
     private static RuleData data(String name, String keywords, String resumeHash, Integer limit) {
-        return new RuleData(name, keywords, " ", null, null, null, null, null, null, null, null, resumeHash,
-                null, null, limit, null, null);
+        return new RuleData(name, keywords, null, " ", null, null, null, null, null, null, null, null, null, null,
+                null, resumeHash, null, null, limit, null, null);
     }
 
     /** Правило с одним необычным полем - остальное как в {@link #data}. */
     private static RuleData with(Integer salary, String experience, Long letterId, Integer interval) {
-        return new RuleData("java", "java", null, null, null, null, salary, null, experience, null, null, "hash",
-                letterId, null, null, interval, null);
+        return new RuleData("java", "java", null, null, null, null, null, salary, null, experience, null, null,
+                null, null, null, "hash", letterId, null, null, interval, null);
+    }
+
+    private static RuleData filters(String skills, List<String> formats, List<String> forms, List<String> labels,
+                                    Integer period) {
+        return new RuleData("java", "java", skills, null, null, null, null, null, null, null, formats, forms,
+                labels, period, null, "hash", null, null, null, null, null);
     }
 
     @Test
@@ -134,14 +140,55 @@ class RuleServiceTest {
 
     @Test
     void areaKeepsItsNameAndClearsWithIt() {
-        service.update(user, 7L, new RuleData("java", "java", null, null, 88, " Казань ", null, null, null, null,
-                null, "hash", null, null, null, null, null));
+        service.update(user, 7L, new RuleData("java", "java", null, null, null, 88, " Казань ", null, null, null,
+                null, null, null, null, null, "hash", null, null, null, null, null));
         assertEquals(88, existing.getAreaId());
         assertEquals("Казань", existing.getAreaName());
 
-        service.update(user, 7L, new RuleData("java", "java", null, null, null, "Казань", null, null, null, null,
-                null, "hash", null, null, null, null, null));
+        service.update(user, 7L, new RuleData("java", "java", null, null, null, null, "Казань", null, null, null,
+                null, null, null, null, null, "hash", null, null, null, null, null));
         assertNull(existing.getAreaName());
+    }
+
+    @Test
+    void storesSearchFiltersInHhOrderWithoutDuplicates() {
+        service.update(user, 7L, filters(" kubernetes OR k8s ", List.of("HYBRID", "REMOTE", "REMOTE"),
+                List.of("FULL"), List.of("not_from_agency"), 7));
+
+        assertEquals("kubernetes OR k8s", existing.getSkills());
+        assertEquals(List.of("REMOTE", "HYBRID"), existing.getWorkFormats());
+        assertEquals(List.of("FULL"), existing.getEmploymentForms());
+        assertEquals(List.of("not_from_agency"), existing.getLabels());
+        assertEquals(7, existing.getPeriodDays());
+
+        service.update(user, 7L, filters(null, null, null, null, null));
+        assertNull(existing.getSkills());
+        assertEquals(List.of(), existing.getWorkFormats());
+        assertNull(existing.getPeriodDays());
+    }
+
+    @Test
+    void unknownFilterCodeIsAnErrorNotASilentSkip() {
+        assertEquals("workFormats", assertThrows(ValidationException.class,
+                () -> service.update(user, 7L, filters(null, List.of("FROM_BED"), null, null, null))).getField());
+        assertEquals("labels", assertThrows(ValidationException.class,
+                () -> service.update(user, 7L, filters(null, null, null, List.of("with_snacks"), null))).getField());
+        assertEquals("periodDays", assertThrows(ValidationException.class,
+                () -> service.update(user, 7L, filters(null, null, null, null, 5))).getField());
+    }
+
+    /** Правила, созданные когда формат был одним флажком «только удалёнка», должны читаться по-прежнему. */
+    @Test
+    void legacyRemoteOnlyFlagReadsAsRemoteFormat() {
+        ResponseRule legacy = new ResponseRule(1L, "old");
+        ReflectionTestUtils.setField(legacy, "remoteOnly", true);
+
+        assertEquals(List.of("REMOTE"), legacy.getWorkFormats());
+        assertTrue(legacy.isRemoteOnly());
+
+        legacy.setWorkFormats(List.of("REMOTE", "HYBRID"));
+        assertFalse(legacy.isRemoteOnly());
+        assertEquals(false, ReflectionTestUtils.getField(legacy, "remoteOnly"));
     }
 
     @Test
