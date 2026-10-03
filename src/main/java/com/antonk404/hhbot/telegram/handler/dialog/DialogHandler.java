@@ -13,6 +13,7 @@ import com.antonk404.hhbot.service.util.LetterRenderer;
 import com.antonk404.hhbot.telegram.TelegramReplies;
 import com.antonk404.hhbot.telegram.access.Access;
 import com.antonk404.hhbot.telegram.state.DialogState;
+import com.antonk404.hhbot.telegram.state.DialogState.Dialog;
 import com.antonk404.hhbot.telegram.view.Screens;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
