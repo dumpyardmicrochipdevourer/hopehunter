@@ -14,6 +14,7 @@ import com.antonk404.hhbot.service.VacancyScanner;
 import com.antonk404.hhbot.telegram.TelegramReplies;
 import com.antonk404.hhbot.telegram.access.Access;
 import com.antonk404.hhbot.telegram.state.DialogState;
+import com.antonk404.hhbot.telegram.state.DialogState.Step;
 import com.antonk404.hhbot.telegram.view.Kb;
 import com.antonk404.hhbot.telegram.view.Screen;
 import com.antonk404.hhbot.telegram.view.Screens;
