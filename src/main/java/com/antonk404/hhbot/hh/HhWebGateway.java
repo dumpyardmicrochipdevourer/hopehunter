@@ -1,5 +1,12 @@
 package com.antonk404.hhbot.hh;
 
+import com.antonk404.hhbot.domain.dto.ApplyResult;
+import com.antonk404.hhbot.domain.dto.HhProfile;
+import com.antonk404.hhbot.domain.dto.HhResume;
+import com.antonk404.hhbot.domain.dto.HhVacancy;
+import com.antonk404.hhbot.domain.dto.SearchQuery;
+import com.antonk404.hhbot.hh.exceptions.HhException;
+import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

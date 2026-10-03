@@ -1,5 +1,9 @@
 package com.antonk404.hhbot.hh;
 
+import com.antonk404.hhbot.domain.dto.ApplyResult;
+import com.antonk404.hhbot.domain.dto.HhProfile;
+import com.antonk404.hhbot.domain.dto.HhVacancy;
+import com.antonk404.hhbot.domain.dto.SearchQuery;
 import java.util.List;
 
 /**
