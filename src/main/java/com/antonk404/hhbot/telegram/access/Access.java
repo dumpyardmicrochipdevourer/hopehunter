@@ -17,8 +17,10 @@ public class Access {
 
     private final WhitelistService whitelistService;
     private final TelegramReplies replies;
+    private final BotContact botContact;
 
-    public Access(WhitelistService whitelistService, TelegramReplies replies) {
+    public Access(WhitelistService whitelistService, TelegramReplies replies, BotContact botContact) {
+        this.botContact = botContact;
         this.whitelistService = whitelistService;
         this.replies = replies;
     }
@@ -45,7 +47,7 @@ public class Access {
         }
         Optional<BotUser> user = resolve(query.getFrom(), message.getChatId());
         if (user.isEmpty()) {
-            replies.answerCallback(query.getId(), "нет доступа");
+            replies.answerCallback(query.getId(), botContact.denied());
             return Optional.empty();
         }
         return Optional.of(new Press(
