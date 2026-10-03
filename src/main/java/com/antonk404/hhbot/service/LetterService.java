@@ -10,7 +10,6 @@ import com.antonk404.hhbot.domain.dto.LetterPreview;
 import com.antonk404.hhbot.domain.dto.LetterView;
 import com.antonk404.hhbot.domain.repo.LetterTemplateRepository;
 import com.antonk404.hhbot.domain.repo.ResponseRuleRepository;
-import com.antonk404.hhbot.hh.exceptions.HhException;
 import com.antonk404.hhbot.service.exceptions.NotFoundException;
 import com.antonk404.hhbot.service.exceptions.ValidationException;
 import com.antonk404.hhbot.service.util.LetterRenderer;
@@ -18,7 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
 /** Шаблоны сопроводительных писем для мини-приложения. */
 @Service
@@ -26,24 +24,21 @@ public class LetterService {
 
     private static final int MAX_NAME = 64;
 
-    /** На чём показать предпросмотр, если настоящую вакансию достать не вышло. */
+    /** Условная вакансия для предпросмотра. */
     private static final HhVacancy SAMPLE = new HhVacancy(
-            "0", "Java-разработчик", "Рога и копыта", "от 200 000 до 300 000 ₽", "Москва", "", false, false);
+            "0", "DevOps Engineer", "Amazon", "от 200 000 до 300 000 ₽", "Москва", "", false, false);
 
     private final LetterTemplateRepository letterTemplateRepository;
     private final ResponseRuleRepository responseRuleRepository;
     private final HhAccountService hhAccountService;
-    private final VacancyScanner vacancyScanner;
 
     public LetterService(
             LetterTemplateRepository letterTemplateRepository,
             ResponseRuleRepository responseRuleRepository,
-            HhAccountService hhAccountService,
-            VacancyScanner vacancyScanner) {
+            HhAccountService hhAccountService) {
         this.letterTemplateRepository = letterTemplateRepository;
         this.responseRuleRepository = responseRuleRepository;
         this.hhAccountService = hhAccountService;
-        this.vacancyScanner = vacancyScanner;
     }
 
     public List<LetterView> list(BotUser user) {
@@ -74,30 +69,15 @@ public class LetterService {
     }
 
     /**
-     * Как текст уйдёт работодателю. Принимает сам текст, а не id: предпросмотр нужен в форме до
-     * сохранения, пока человек ещё пишет.
+     * Как текст уйдёт работодателю - на условной вакансии. Принимает сам текст, а не id:
+     * предпросмотр нужен в форме до сохранения, пока человек ещё пишет.
+     *
+     * <p>Вакансия выдуманная нарочно. Настоящая стоила бы запроса к hh на каждую паузу при наборе
+     * текста, а человеку здесь нужно увидеть одно: что куда подставится.
      */
     public LetterPreview preview(BotUser user, String body) {
-        String checked = body(body);
-        Optional<HhVacancy> real = realVacancy(user);
         String ownerName = hhAccountService.session(user.getId()).map(HhSession::getOwnerName).orElse("");
-        HhVacancy vacancy = real.orElse(SAMPLE);
-        return new LetterPreview(LetterRenderer.render(checked, vacancy, ownerName), vacancy, real.isPresent());
-    }
-
-    /** Первая вакансия по первому правилу с ключевыми словами; пусто, если такой нет или hh молчит. */
-    private Optional<HhVacancy> realVacancy(BotUser user) {
-        Optional<ResponseRule> rule = responseRuleRepository.findByUserIdOrderByIdAsc(user.getId()).stream()
-                .filter(candidate -> candidate.getKeywords() != null && !candidate.getKeywords().isBlank())
-                .findFirst();
-        if (rule.isEmpty()) {
-            return Optional.empty();
-        }
-        try {
-            return vacancyScanner.preview(user, rule.get()).stream().findFirst();
-        } catch (HhException e) {
-            return Optional.empty();
-        }
+        return new LetterPreview(LetterRenderer.render(body(body), SAMPLE, ownerName), SAMPLE);
     }
 
     private LetterTemplate find(BotUser user, Long id) {
