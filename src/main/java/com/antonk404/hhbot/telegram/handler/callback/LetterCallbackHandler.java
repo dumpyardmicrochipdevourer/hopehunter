@@ -10,14 +10,16 @@ import com.antonk404.hhbot.domain.repo.ResponseRuleRepository;
 import com.antonk404.hhbot.hh.exceptions.HhException;
 import com.antonk404.hhbot.service.HhAccountService;
 import com.antonk404.hhbot.service.VacancyScanner;
-import com.antonk404.hhbot.service.util.LetterRenderer;
-import com.antonk404.hhbot.telegram.TelegramReplies;
 import com.antonk404.hhbot.telegram.access.Access;
 import com.antonk404.hhbot.telegram.state.DialogState;
 import com.antonk404.hhbot.telegram.state.DialogState.Step;
+import com.antonk404.hhbot.telegram.state.MenuMessage;
+import com.antonk404.hhbot.telegram.view.Cb;
+import com.antonk404.hhbot.telegram.view.Html;
 import com.antonk404.hhbot.telegram.view.Kb;
+import com.antonk404.hhbot.telegram.view.LetterScreens;
+import com.antonk404.hhbot.telegram.view.MenuScreens;
 import com.antonk404.hhbot.telegram.view.Screen;
-import com.antonk404.hhbot.telegram.view.Screens;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 
@@ -26,6 +28,13 @@ import java.util.Optional;
 /** Раздел «Письма». Data: {@code l:<id>:<действие>}. */
 @Component
 public class LetterCallbackHandler implements CallbackHandler {
+
+    public static final String NEW_LETTER_PROMPT = """
+            <b>Новое письмо · шаг 1 из 2</b>
+
+            Как его назвать? Название видишь только ты.
+
+            Например: <code>Основное</code>""";
 
     /** На чём показать предпросмотр, если настоящую вакансию достать не вышло. */
     private static final HhVacancy SAMPLE = new HhVacancy(
@@ -37,8 +46,8 @@ public class LetterCallbackHandler implements CallbackHandler {
     private final HhAccountService hhAccountService;
     private final VacancyScanner vacancyScanner;
     private final DialogState dialogState;
-    private final Screens screens;
-    private final TelegramReplies replies;
+    private final MenuMessage menu;
+    private final LetterScreens screens;
 
     public LetterCallbackHandler(
             Access access,
@@ -47,16 +56,16 @@ public class LetterCallbackHandler implements CallbackHandler {
             HhAccountService hhAccountService,
             VacancyScanner vacancyScanner,
             DialogState dialogState,
-            Screens screens,
-            TelegramReplies replies) {
+            MenuMessage menu,
+            LetterScreens screens) {
         this.access = access;
         this.letterTemplateRepository = letterTemplateRepository;
         this.responseRuleRepository = responseRuleRepository;
         this.hhAccountService = hhAccountService;
         this.vacancyScanner = vacancyScanner;
         this.dialogState = dialogState;
+        this.menu = menu;
         this.screens = screens;
-        this.replies = replies;
     }
 
     @Override
@@ -73,13 +82,13 @@ public class LetterCallbackHandler implements CallbackHandler {
         BotUser user = press.user();
         dialogState.clear(user.getId());
 
-        if (press.data().equals(Screens.LETTERS)) {
-            show(press, screens.letters(user));
+        if (press.data().equals(Cb.LETTERS)) {
+            menu.edit(press, screens.list(user));
             return;
         }
-        if (press.data().equals(Screens.LETTER_NEW)) {
+        if (press.data().equals(Cb.LETTER_NEW)) {
             dialogState.expect(user.getId(), Step.LETTER_NEW_NAME);
-            show(press, screens.prompt("Как назвать письмо? Название видишь только ты.", Screens.LETTERS));
+            menu.edit(press, MenuScreens.prompt(NEW_LETTER_PROMPT, Cb.LETTERS));
             return;
         }
 
@@ -93,37 +102,37 @@ public class LetterCallbackHandler implements CallbackHandler {
             }
         }
         if (found.isEmpty()) {
-            replies.answerCallback(press.queryId(), "письма уже нет");
-            replies.editMenu(press.chatId(), press.messageId(), screens.letters(user));
+            menu.edit(press, screens.list(user), "Этого письма уже нет");
             return;
         }
         LetterTemplate template = found.get();
+        Long id = template.getId();
 
         switch (parts[2]) {
             case "edit" -> {
-                dialogState.expect(user.getId(), Step.LETTER_BODY, template.getId());
-                show(press, screens.prompt("Пришли новый текст письма.\n\n" + Screens.aliasHelp(),
-                        Screens.letter(template.getId(), "show")));
+                dialogState.expect(user.getId(), Step.LETTER_BODY, id);
+                menu.edit(press, MenuScreens.prompt("<b>Новый текст письма «" + Html.esc(template.getName())
+                        + "»</b>\n\n" + LetterScreens.aliasHelp(), Cb.letter(id, "show")));
             }
             case "pv" -> {
-                HhVacancy vacancy = sampleVacancy(user);
+                menu.progress(press, "Подбираю вакансию для примера…");
                 String ownerName = hhAccountService.session(user.getId()).map(HhSession::getOwnerName).orElse("");
-                String text = "Так письмо уйдёт на вакансию «" + vacancy.name() + "» (" + vacancy.company() + "):\n\n"
-                        + LetterRenderer.render(template.getBody(), vacancy, ownerName);
-                show(press, new Screen(text,
-                        Kb.of().row(Kb.btn("« Назад", Screens.letter(template.getId(), "show"))).build()));
+                menu.finish(press, screens.preview(template, sampleVacancy(user), ownerName));
             }
-            case "del" -> {
-                // Правила, которые ссылались на письмо, остаются рабочими - просто без письма.
-                for (ResponseRule rule : responseRuleRepository.findByLetterTemplateId(template.getId())) {
+            case "del" -> menu.edit(press, new Screen(
+                    "Удалить письмо «" + Html.esc(template.getName()) + "»?\n\nПравила, где оно выбрано, "
+                            + "продолжат работать - просто без письма.",
+                    Kb.of().row(Kb.btn("🗑 Да, удалить", Cb.letter(id, "delok")), Kb.btn("Нет", Cb.letter(id, "show")))
+                            .build()));
+            case "delok" -> {
+                for (ResponseRule rule : responseRuleRepository.findByLetterTemplateId(id)) {
                     rule.setLetterTemplateId(null);
                     responseRuleRepository.save(rule);
                 }
                 letterTemplateRepository.delete(template);
-                replies.answerCallback(press.queryId(), "удалил");
-                replies.editMenu(press.chatId(), press.messageId(), screens.letters(user));
+                menu.edit(press, screens.list(user), "Удалил");
             }
-            default -> show(press, screens.letter(template));
+            default -> menu.edit(press, screens.letter(template));
         }
     }
 
@@ -140,10 +149,5 @@ public class LetterCallbackHandler implements CallbackHandler {
         } catch (HhException e) {
             return SAMPLE;
         }
-    }
-
-    private void show(Access.Press press, Screen screen) {
-        replies.answerCallback(press.queryId(), null);
-        replies.editMenu(press.chatId(), press.messageId(), screen);
     }
 }
