@@ -1,13 +1,16 @@
 package com.antonk404.hhbot.hh;
 
 import com.antonk404.hhbot.domain.dto.ApplyResult;
+import com.antonk404.hhbot.domain.dto.HhArea;
 import com.antonk404.hhbot.domain.dto.HhProfile;
 import com.antonk404.hhbot.domain.dto.HhResume;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
 import com.antonk404.hhbot.domain.dto.SearchQuery;
 import com.antonk404.hhbot.hh.exceptions.HhException;
 import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +37,8 @@ import java.util.Map;
 public class HhWebGateway implements HhGateway {
 
     private static final Logger logger = LoggerFactory.getLogger(HhWebGateway.class);
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final HhHttp http;
     private final String baseUrl;
@@ -112,7 +117,9 @@ public class HhWebGateway implements HhGateway {
         if (query.salaryFrom() != null) {
             params.put("salary", String.valueOf(query.salaryFrom()));
             // Без этого hh подмешивает вакансии без вилки - порог зарплаты перестаёт что-либо значить.
-            params.put("only_with_salary", "true");
+            if (query.onlyWithSalary()) {
+                params.put("only_with_salary", "true");
+            }
         }
         if (query.experience() != null) {
             params.put("experience", query.experience());
@@ -152,6 +159,28 @@ public class HhWebGateway implements HhGateway {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ROOT);
         symbols.setGroupingSeparator(' ');
         return new DecimalFormat("#,###", symbols).format(amount);
+    }
+
+    @Override
+    public List<HhArea> areas(String text) {
+        HhHttp.Response response = http.get(
+                baseUrl + "/autosuggest/multiprefix/v2?d=areas_RU&q=" + URLEncoder.encode(text, StandardCharsets.UTF_8),
+                Map.of("User-Agent", userAgent, "Accept-Language", "ru-RU,ru;q=0.9"));
+        if (response.status() != 200) {
+            throw new HhException("hh answered " + response.status());
+        }
+        List<HhArea> areas = new ArrayList<>();
+        try {
+            for (JsonNode item : MAPPER.readTree(response.body()).path("items")) {
+                if (item.hasNonNull("id") && item.hasNonNull("text")) {
+                    areas.add(new HhArea(item.get("id").asInt(), item.get("text").asText(),
+                            item.path("parent").path("text").asText("")));
+                }
+            }
+        } catch (JsonProcessingException e) {
+            throw new HhException("hh area suggest is not json", e);
+        }
+        return areas;
     }
 
     @Override
