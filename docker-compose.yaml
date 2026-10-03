@@ -39,6 +39,7 @@ services:
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       BOT_ADMIN_USERNAMES: ${BOT_ADMIN_USERNAMES:-microchipdddd}
+      BOT_CONTACT_USERNAME: ${BOT_CONTACT_USERNAME:-microchipdddd}
       DB_URL: jdbc:postgresql://db:5432/hhbot
       DB_USER: hhbot
       DB_PASSWORD: ${DB_PASSWORD}

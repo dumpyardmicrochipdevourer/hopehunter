@@ -8,6 +8,7 @@ import com.antonk404.hhbot.hh.exceptions.HhException;
 import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
 import com.antonk404.hhbot.service.RuleService;
 import com.antonk404.hhbot.service.WhitelistService;
+import com.antonk404.hhbot.telegram.access.BotContact;
 import com.antonk404.hhbot.service.exceptions.NotFoundException;
 import com.antonk404.hhbot.service.exceptions.ValidationException;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +55,7 @@ class ApiTest {
         InitDataValidator validator = new InitDataValidator(TOKEN, Duration.ofHours(24), Clock.systemUTC());
         mvc = MockMvcBuilders.standaloneSetup(new RuleController(ruleService))
                 .setControllerAdvice(new ApiExceptionHandler())
-                .addInterceptors(new AuthInterceptor(validator, whitelistService))
+                .addInterceptors(new AuthInterceptor(validator, whitelistService, new BotContact("@MicrochipDDDD")))
                 .build();
         auth = "tma " + InitDataValidatorTest.sign(TOKEN, Instant.now(), "{\"id\":42,\"username\":\"anton\"}");
     }
@@ -82,7 +83,8 @@ class ApiTest {
 
         mvc.perform(get("/api/rules").header("Authorization", stranger))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("forbidden"));
+                .andExpect(jsonPath("$.error").value("forbidden"))
+                .andExpect(jsonPath("$.message").value("whitelist only. dm @microchipdddd"));
 
         verifyNoInteractions(ruleService);
     }

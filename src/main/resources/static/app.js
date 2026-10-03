@@ -225,7 +225,7 @@
       return paint(message('откройте заново', 'Подпись Telegram устарела. Закройте приложение и откройте его из бота.'));
     }
     if (error.code === 'forbidden') {
-      return paint(message('нет доступа', 'Бот работает по приглашениям.'));
+      return paint(message('нет доступа', error.message));
     }
     actions.retry = retry;
     paint(message(error.code === 'hh_unavailable' ? 'hh не отвечает' : 'не получилось', error.message,

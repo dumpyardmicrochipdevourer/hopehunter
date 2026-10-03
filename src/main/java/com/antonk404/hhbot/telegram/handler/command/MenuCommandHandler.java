@@ -5,6 +5,7 @@ import com.antonk404.hhbot.service.WhitelistService;
 import com.antonk404.hhbot.telegram.TelegramReplies;
 import com.antonk404.hhbot.telegram.access.Access;
 import com.antonk404.hhbot.telegram.access.AdminAccess;
+import com.antonk404.hhbot.telegram.access.BotContact;
 import com.antonk404.hhbot.telegram.state.DialogState;
 import com.antonk404.hhbot.telegram.state.MenuMessage;
 import com.antonk404.hhbot.telegram.view.MenuScreens;
@@ -39,6 +40,7 @@ public class MenuCommandHandler implements CommandHandler {
     private final MenuScreens menuScreens;
     private final RuleScreens ruleScreens;
     private final TelegramReplies replies;
+    private final BotContact botContact;
 
     public MenuCommandHandler(
             Access access,
@@ -48,7 +50,9 @@ public class MenuCommandHandler implements CommandHandler {
             MenuMessage menu,
             MenuScreens menuScreens,
             RuleScreens ruleScreens,
-            TelegramReplies replies) {
+            TelegramReplies replies,
+            BotContact botContact) {
+        this.botContact = botContact;
         this.access = access;
         this.adminAccess = adminAccess;
         this.whitelistService = whitelistService;
@@ -73,8 +77,7 @@ public class MenuCommandHandler implements CommandHandler {
         }
         Optional<BotUser> found = access.user(message);
         if (found.isEmpty()) {
-            replies.text(message.getChatId(), "Этот бот работает по приглашениям. Попроси доступ у того, "
-                    + "кто дал тебе ссылку.");
+            replies.text(message.getChatId(), botContact.denied());
             return;
         }
         BotUser user = found.get();
