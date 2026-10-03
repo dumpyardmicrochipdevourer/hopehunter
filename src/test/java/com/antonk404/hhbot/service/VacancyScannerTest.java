@@ -129,6 +129,35 @@ class VacancyScannerTest {
         verify(applyService).apply(user, rule, vacancy("1", "Java"));
     }
 
+    /** Первый проход нового правила: вся первая страница новая - значит, новое есть и глубже. */
+    @Test
+    void readsNextPageOnlyWhileTheWholePageIsNew() {
+        when(gateway.search(eq(COOKIES), any(), eq(0))).thenReturn(List.of(vacancy("1", "a"), vacancy("2", "b")));
+        when(gateway.search(eq(COOKIES), any(), eq(1))).thenReturn(List.of(vacancy("2", "b"), vacancy("3", "c")));
+        when(gateway.search(eq(COOKIES), any(), eq(2))).thenReturn(List.of(vacancy("9", "z")));
+
+        scanner.scanRule(rule);
+
+        // Вторая страница началась с уже виденной вакансии - на третью не идём.
+        verify(gateway, never()).search(any(), any(), eq(2));
+        verify(listener, times(3)).found(eq(user), eq(rule), any());
+    }
+
+    @Test
+    void steadyStateCostsOneSearchRequest() {
+        found(vacancy("1", "a"));
+        scanner.scanRule(rule);
+        store.delete("scan:7");
+        // Первый проход законно заглядывал на вторую страницу - считаем запросы только второго.
+        org.mockito.Mockito.clearInvocations(gateway);
+        when(gateway.search(eq(COOKIES), any(), eq(0))).thenReturn(List.of(vacancy("5", "new"), vacancy("1", "a")));
+
+        scanner.scanRule(rule);
+
+        verify(gateway, never()).search(any(), any(), eq(1));
+        verify(listener).found(user, rule, vacancy("5", "new"));
+    }
+
     @Test
     void stopsAtPerScanCap() {
         rule.setMode(RuleMode.AUTO);
@@ -184,7 +213,7 @@ class VacancyScannerTest {
         scanner.scanRule(rule);
         scanner.scanRule(rule);
 
-        verify(gateway, times(1)).search(any(), any(), anyInt());
+        verify(gateway, times(1)).search(any(), any(), eq(0));
         assertEquals(java.time.Duration.ofMinutes(58), store.ttls.get("scan:7"));
     }
 

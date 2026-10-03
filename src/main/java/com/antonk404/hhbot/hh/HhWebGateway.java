@@ -120,35 +120,49 @@ public class HhWebGateway implements HhGateway {
     }
 
     static String searchParams(SearchQuery query, int page) {
-        Map<String, String> params = new LinkedHashMap<>();
-        params.put("text", query.text());
-        if (query.titleOnly()) {
-            params.put("search_field", "name");
+        // Параметры с повторами (work_format=REMOTE&work_format=HYBRID), поэтому список пар, а не Map.
+        List<String[]> params = new ArrayList<>();
+        boolean hasSkills = query.skills() != null && !query.skills().isBlank();
+        if (hasSkills) {
+            // Должность ищем в названии, стек - в описании. У hh это один текст с полями;
+            // search_field при этом не ставим - он применился бы ко всему запросу разом.
+            String keywords = query.titleOnly() ? "NAME:(" + query.text() + ")" : "(" + query.text() + ")";
+            params.add(new String[]{"text", keywords + " AND DESCRIPTION:(" + query.skills() + ")"});
+        } else {
+            params.add(new String[]{"text", query.text()});
+            if (query.titleOnly()) {
+                params.add(new String[]{"search_field", "name"});
+            }
         }
         if (query.areaId() != null) {
-            params.put("area", String.valueOf(query.areaId()));
+            params.add(new String[]{"area", String.valueOf(query.areaId())});
         }
         if (query.salaryFrom() != null) {
-            params.put("salary", String.valueOf(query.salaryFrom()));
+            params.add(new String[]{"salary", String.valueOf(query.salaryFrom())});
             // Без этого hh подмешивает вакансии без вилки - порог зарплаты перестаёт что-либо значить.
             if (query.onlyWithSalary()) {
-                params.put("only_with_salary", "true");
+                params.add(new String[]{"only_with_salary", "true"});
             }
         }
         if (query.experience() != null) {
-            params.put("experience", query.experience());
+            params.add(new String[]{"experience", query.experience()});
         }
-        if (query.remoteOnly()) {
-            params.put("work_format", "REMOTE");
+        query.workFormats().forEach(format -> params.add(new String[]{"work_format", format}));
+        query.employmentForms().forEach(form -> params.add(new String[]{"employment_form", form}));
+        query.labels().forEach(label -> params.add(new String[]{"label", label}));
+        if (query.periodDays() != null) {
+            params.add(new String[]{"search_period", String.valueOf(query.periodDays())});
         }
         // По умолчанию hh сортирует по своей «релевантности», и свежие вакансии тонут на дальних
         // страницах. Сканеру нужны именно новые - он читает только начало выдачи.
-        params.put("order_by", "publication_time");
-        params.put("page", String.valueOf(page));
+        params.add(new String[]{"order_by", "publication_time"});
+        params.add(new String[]{"page", String.valueOf(page)});
 
         StringBuilder out = new StringBuilder();
-        params.forEach((key, value) -> out.append(out.isEmpty() ? "" : "&")
-                .append(key).append('=').append(URLEncoder.encode(value, StandardCharsets.UTF_8)));
+        for (String[] param : params) {
+            out.append(out.isEmpty() ? "" : "&")
+                    .append(param[0]).append('=').append(URLEncoder.encode(param[1], StandardCharsets.UTF_8));
+        }
         return out.toString();
     }
 

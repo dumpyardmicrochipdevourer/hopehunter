@@ -144,19 +144,21 @@
   /**
    * options: [{label, sub, value, checked}] - выбор из списка;
    * search: {placeholder, load(query) -> options} - список с поиском;
-   * confirm: {label, danger, run} - подтверждение с кнопками «отмена / действие».
+   * confirm: {label, danger, run} - подтверждение с кнопками «отмена / действие»;
+   * multi: true - можно отметить несколько, результат отдаётся в onDone по кнопке «готово».
    */
-  function openSheet({ title, text, options, search, confirm, onPick }) {
+  function openSheet({ title, text, options, search, confirm, onPick, multi, onDone }) {
     closeSheet();
     const wrap = document.createElement('div');
     const list = (items) => items.map((o, i) =>
-      `<button type="button" class="option" role="radio" aria-checked="${!!o.checked}" data-i="${i}"><span>${esc(o.label)}${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</span></button>`).join('');
+      `<button type="button" class="option" role="${multi ? 'checkbox' : 'radio'}" aria-checked="${!!o.checked}" data-i="${i}"><span>${esc(o.label)}${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</span></button>`).join('');
     let current = options || [];
     wrap.innerHTML = `<div class="scrim"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
       <div class="sheet-head"><h2>${esc(title)}</h2>${text ? `<p>${esc(text)}</p>` : ''}</div>
       ${search ? `<input class="field" type="search" placeholder="${esc(search.placeholder)}" autocomplete="off">` : ''}
       ${confirm ? `<div class="row"><button type="button" class="btn second" data-cancel>отмена</button><button type="button" class="btn${confirm.danger ? ' danger' : ''}" data-ok>${esc(confirm.label)}</button></div>`
-        : `<div class="sheet-list" role="radiogroup">${list(current)}</div>`}
+        : `<div class="sheet-list" role="${multi ? 'group' : 'radiogroup'}">${list(current)}</div>`}
+      ${multi ? '<button type="button" class="btn" data-done>готово</button>' : ''}
     </div>`;
     sheetRoot.appendChild(wrap);
     requestAnimationFrame(() => wrap.classList.add('open'));
@@ -171,8 +173,17 @@
     wrap.addEventListener('click', (event) => {
       if (event.target.classList.contains('scrim') || event.target.closest('[data-cancel]')) return close();
       if (event.target.closest('[data-ok]')) { close(); return confirm.run(); }
+      if (event.target.closest('[data-done]')) {
+        const picked = [...wrap.querySelectorAll('.option[aria-checked="true"]')].map((el) => current[Number(el.dataset.i)].value);
+        close();
+        return onDone(picked);
+      }
       const option = event.target.closest('.option');
-      if (option) { haptic(); close(); onPick(current[Number(option.dataset.i)]); }
+      if (!option) return;
+      haptic();
+      if (multi) { option.setAttribute('aria-checked', String(option.getAttribute('aria-checked') !== 'true')); return; }
+      close();
+      onPick(current[Number(option.dataset.i)]);
     });
 
     if (search) {
@@ -436,12 +447,13 @@
   }
 
   const EMPTY_RULE = {
-    name: '', keywords: '', minusWords: '', titleOnly: true, areaId: null, areaName: null, salaryFrom: null,
-    onlyWithSalary: true, experience: null, remoteOnly: false, companyBlacklist: '', resumeHash: null,
+    name: '', keywords: '', skills: '', minusWords: '', titleOnly: true, areaId: null, areaName: null, salaryFrom: null,
+    onlyWithSalary: true, experience: null, workFormats: [], employmentForms: [], labels: [], periodDays: null,
+    companyBlacklist: '', resumeHash: null,
     resumeTitle: null, letterTemplateId: null, mode: 'CONFIRM', dailyLimit: 30, intervalMinutes: 15, skipWithTest: true,
   };
-  const RULE_FIELDS = ['name', 'keywords', 'minusWords', 'titleOnly', 'areaId', 'areaName', 'salaryFrom', 'onlyWithSalary',
-    'experience', 'remoteOnly', 'companyBlacklist', 'resumeHash', 'letterTemplateId', 'mode', 'dailyLimit', 'intervalMinutes', 'skipWithTest'];
+  const RULE_FIELDS = ['name', 'keywords', 'skills', 'minusWords', 'titleOnly', 'areaId', 'areaName', 'salaryFrom', 'onlyWithSalary',
+    'experience', 'workFormats', 'employmentForms', 'labels', 'periodDays', 'companyBlacklist', 'resumeHash', 'letterTemplateId', 'mode', 'dailyLimit', 'intervalMinutes', 'skipWithTest'];
   const payload = (rule) => Object.fromEntries(RULE_FIELDS.map((key) => [key, rule[key] === '' ? null : rule[key]]));
 
   async function ruleForm(seq, id) {
@@ -450,7 +462,7 @@
     if (stale(seq)) return;
 
     const rule = Object.assign({}, EMPTY_RULE, loaded || { dailyLimit: info.defaultDailyLimit });
-    for (const key of ['minusWords', 'companyBlacklist', 'keywords']) rule[key] = rule[key] || '';
+    for (const key of ['minusWords', 'companyBlacklist', 'keywords', 'skills']) rule[key] = rule[key] || '';
     let saved = JSON.stringify(payload(rule));
     let invalid = null;   // {field, message}
     let busy = false;
@@ -459,6 +471,15 @@
     const dirty = () => JSON.stringify(payload(rule)) !== saved;
     const letterName = () => (letterList.find((l) => l.id === rule.letterTemplateId) || {}).name || 'без письма';
     const experienceName = () => (info.experience.find((o) => o.code === rule.experience) || {}).label || 'любой';
+    /** Подписи выбранных кодов через запятую; если ничего не выбрано - слово «любой». */
+    const chosen = (options, codes, none) =>
+      options.filter((o) => codes.includes(o.code)).map((o) => o.label).join(', ') || none;
+    const period = (days) => (!days ? 'любая' : days === 1 ? 'за сутки' : days === 7 ? 'за неделю' : days === 30 ? 'за месяц' : `за ${days} дня`);
+    const multiPick = (title, text, options, field) => openSheet({
+      title, text, multi: true,
+      options: options.map((o) => ({ label: o.label, value: o.code, checked: rule[field].includes(o.code) })),
+      onDone: (codes) => { rule[field] = codes; draw(); },
+    });
     const bad = (field) => (invalid && invalid.field === field ? ' invalid' : '');
     const errorLine = (field) => (invalid && invalid.field === field ? `<span class="field-error">${esc(invalid.message)}</span>` : '');
     const input = (field, placeholder, extra) =>
@@ -485,8 +506,13 @@
           ${errorLine('salaryFrom')}${errorLine('areaId')}
           ${toggle('onlyWithSalary', 'только с зарплатой')}
           ${toggle('titleOnly', 'искать только в названии')}
-          ${toggle('remoteOnly', 'только удалёнка')}
+          ${input('skills', 'что должно быть в описании')}
+          <span class="hint">Стек и навыки, которые ищем в тексте вакансии: <code>kubernetes OR k8s</code>. Пусто - не важно.</span>
+          ${pick('workFormats', 'формат работы', chosen(info.workFormats, rule.workFormats, 'любой'), 'formats')}
+          ${pick('employmentForms', 'занятость', chosen(info.employmentForms, rule.employmentForms, 'любая'), 'employment')}
           ${pick('experience', 'опыт', experienceName(), 'experience')}
+          ${pick('periodDays', 'свежесть', period(rule.periodDays), 'period')}
+          ${pick('labels', 'ещё фильтры', rule.labels.length ? `выбрано: ${rule.labels.length}` : 'нет', 'labels')}
           ${input('minusWords', 'минус-слова через запятую')}
           ${input('companyBlacklist', 'стоп-лист компаний через запятую')}
           <span class="label">чем откликаться</span>
@@ -534,7 +560,7 @@
       try {
         const result = id ? await api('PUT', `/rules/${id}`, payload(rule)) : await api('POST', '/rules', payload(rule));
         Object.assign(rule, result);
-        for (const key of ['minusWords', 'companyBlacklist', 'keywords']) rule[key] = rule[key] || '';
+        for (const key of ['minusWords', 'companyBlacklist', 'keywords', 'skills']) rule[key] = rule[key] || '';
         saved = JSON.stringify(payload(rule));
         busy = false;
         return result.id;
@@ -586,6 +612,15 @@
         rule.areaName = option.value ? option.value.name : null;
         draw();
       },
+    });
+    actions.formats = () => multiPick('формат работы', 'Можно несколько. Ничего не отмечено - подойдёт любой.', info.workFormats, 'workFormats');
+    actions.employment = () => multiPick('занятость', 'Можно несколько. Ничего не отмечено - подойдёт любая.', info.employmentForms, 'employmentForms');
+    actions.labels = () => multiPick('ещё фильтры', 'Каждый отмеченный сужает выдачу.', info.labels, 'labels');
+    actions.period = () => openSheet({
+      title: 'свежесть вакансий',
+      options: [{ label: 'любая', value: null, checked: !rule.periodDays }]
+        .concat(info.periodsDays.map((d) => ({ label: period(d), value: d, checked: rule.periodDays === d }))),
+      onPick: (option) => { rule.periodDays = option.value; draw(); },
     });
     actions.experience = () => openSheet({
       title: 'опыт в вакансии',

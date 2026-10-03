@@ -60,7 +60,8 @@ class ApiTest {
     }
 
     private static RuleView view() {
-        return new RuleView(7L, "java", "java", null, true, 1, "Москва", null, true, null, false, null,
+        return new RuleView(7L, "java", "java", "k8s", null, true, 1, "Москва", null, true, null,
+                List.of("REMOTE", "HYBRID"), List.of(), List.of(), null, null,
                 "hash", "Java dev", null, RuleMode.CONFIRM, 30, 15, true, false, true, 0);
     }
 
@@ -95,19 +96,23 @@ class ApiTest {
                 .andExpect(jsonPath("$[0].id").value(7))
                 .andExpect(jsonPath("$[0].mode").value("CONFIRM"))
                 .andExpect(jsonPath("$[0].ready").value(true))
+                .andExpect(jsonPath("$[0].workFormats[1]").value("HYBRID"))
                 .andExpect(jsonPath("$[0].resumeTitle").value("Java dev"));
     }
 
     @Test
     void createsRuleFromFormJson() throws Exception {
-        when(ruleService.create(eq(user), eq(new RuleData("java", "java OR kotlin", null, true, 1, "Москва", 200000, false,
-                "between1And3", true, null, "hash", null, RuleMode.AUTO, 20, 30, false)))).thenReturn(view());
+        when(ruleService.create(eq(user), eq(new RuleData("java", "java OR kotlin", "k8s", null, true, 1, "Москва", 200000, false,
+                "between1And3", List.of("REMOTE", "HYBRID"), List.of("FULL"), List.of("not_from_agency"), 7,
+                null, "hash", null, RuleMode.AUTO, 20, 30, false)))).thenReturn(view());
 
         mvc.perform(post("/api/rules").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"java","keywords":"java OR kotlin","titleOnly":true,"areaId":1,"areaName":"Москва",
-                                 "salaryFrom":200000,"onlyWithSalary":false,"experience":"between1And3",
-                                 "remoteOnly":true,"resumeHash":"hash","mode":"AUTO","dailyLimit":20,
+                                {"name":"java","keywords":"java OR kotlin","skills":"k8s","titleOnly":true,"areaId":1,
+                                 "areaName":"Москва","salaryFrom":200000,"onlyWithSalary":false,
+                                 "experience":"between1And3","workFormats":["REMOTE","HYBRID"],
+                                 "employmentForms":["FULL"],"labels":["not_from_agency"],"periodDays":7,
+                                 "resumeHash":"hash","mode":"AUTO","dailyLimit":20,
                                  "intervalMinutes":30,"skipWithTest":false}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(7));
