@@ -26,7 +26,7 @@ public class MetaController {
     }
 
     public record Meta(List<Area> areas, List<Option> experience, List<Alias> aliases,
-                       int defaultDailyLimit, int maxDailyLimit) {
+                       int defaultDailyLimit, int maxDailyLimit, List<Integer> intervalsMinutes) {
     }
 
     private static final Meta META = new Meta(
@@ -36,7 +36,7 @@ public class MetaController {
             List.of(new Alias("company_name", "компания"), new Alias("vacancy_name", "название вакансии"),
                     new Alias("salary", "зарплата из вакансии, если указана"), new Alias("city", "город"),
                     new Alias("my_name", "твоё имя из hh")),
-            ResponseRule.DEFAULT_DAILY_LIMIT, ResponseRule.MAX_DAILY_LIMIT);
+            ResponseRule.DEFAULT_DAILY_LIMIT, ResponseRule.MAX_DAILY_LIMIT, ResponseRule.INTERVALS_MINUTES);
 
     static {
         // Справочник и проверки обязаны совпадать; расхождение - ошибка сборки, а не сюрприз в форме.

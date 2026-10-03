@@ -64,7 +64,7 @@ class ScreensTest {
         rule.setCompanyBlacklist("A&B");
         rule.setSalaryFrom(200_000);
         rule.setExperience("between1And3");
-        rule.setAreaId(88);
+        rule.setArea(88, null);
         rule.setResume("a".repeat(38), NASTY);
         rule.setLetterTemplateId(5L);
         template = new LetterTemplate(1L, NASTY, "Здравствуйте, [company_name]! <b>не тег</b> & всё");

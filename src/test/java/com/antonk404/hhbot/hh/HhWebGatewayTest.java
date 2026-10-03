@@ -1,6 +1,7 @@
 package com.antonk404.hhbot.hh;
 
 import com.antonk404.hhbot.domain.dto.ApplyResult;
+import com.antonk404.hhbot.domain.dto.HhArea;
 import com.antonk404.hhbot.domain.dto.HhProfile;
 import com.antonk404.hhbot.domain.dto.HhResume;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
@@ -75,7 +76,7 @@ class HhWebGatewayTest {
         FakeHttp http = new FakeHttp(ok(resource("search.html")));
 
         List<HhVacancy> vacancies = gateway(http).search(
-                COOKIES, new SearchQuery("java", true, 1, null, null, false), 0);
+                COOKIES, new SearchQuery("java", true, 1, null, true, null, false), 0);
 
         assertEquals(3, vacancies.size());
         assertEquals(new HhVacancy("138056298", "Java backend developer (Kotlin)", "Максилект",
@@ -92,9 +93,30 @@ class HhWebGatewayTest {
         assertEquals("text=java+developer&search_field=name&area=1&salary=200000&only_with_salary=true"
                         + "&experience=between1And3&work_format=REMOTE&order_by=publication_time&page=2",
                 HhWebGateway.searchParams(
-                        new SearchQuery("java developer", true, 1, 200000, "between1And3", true), 2));
+                        new SearchQuery("java developer", true, 1, 200000, true, "between1And3", true), 2));
         assertEquals("text=java&order_by=publication_time&page=0",
-                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, null, false), 0));
+                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, true, null, false), 0));
+    }
+
+    /** Порог без «только с зарплатой»: hh покажет и вакансии, где зарплата не указана. */
+    @Test
+    void salaryThresholdCanKeepVacanciesWithoutSalary() {
+        assertEquals("text=java&salary=200000&order_by=publication_time&page=0",
+                HhWebGateway.searchParams(new SearchQuery("java", false, null, 200000, false, null, false), 0));
+    }
+
+    /** Ответ - настоящий, снят с hh 2026-10-03 запросом «каз». */
+    @Test
+    void parsesAreaSuggest() {
+        FakeHttp http = new FakeHttp(ok("{\"items\":[{\"id\":88,\"text\":\"Казань\",\"type\":5,\"parent\":"
+                + "{\"id\":1624,\"text\":\"Республика Татарстан\",\"parent\":{\"id\":113,\"text\":\"Россия\"}}},"
+                + "{\"id\":40,\"text\":\"Казахстан\",\"type\":1}]}"));
+
+        List<HhArea> areas = gateway(http).areas("каз");
+
+        assertEquals(List.of(new HhArea(88, "Казань", "Республика Татарстан"), new HhArea(40, "Казахстан", "")), areas);
+        assertEquals("https://hh.ru/autosuggest/multiprefix/v2?d=areas_RU&q=%D0%BA%D0%B0%D0%B7", http.urls.getFirst());
+        assertFalse(http.headers.containsKey("Cookie"));
     }
 
     @Test
@@ -102,7 +124,7 @@ class HhWebGatewayTest {
         FakeHttp http = new FakeHttp(ok("<html>проверка браузера</html>"));
 
         assertThrows(HhException.class, () -> gateway(http).search(
-                COOKIES, new SearchQuery("java", true, null, null, null, false), 0));
+                COOKIES, new SearchQuery("java", true, null, null, true, null, false), 0));
     }
 
     @Test
@@ -110,7 +132,7 @@ class HhWebGatewayTest {
         FakeHttp http = new FakeHttp(new HhHttp.Response(403, "", null));
 
         HhException e = assertThrows(HhException.class, () -> gateway(http).search(
-                COOKIES, new SearchQuery("java", true, null, null, null, false), 0));
+                COOKIES, new SearchQuery("java", true, null, null, true, null, false), 0));
         assertFalse(e instanceof HhSessionExpiredException);
     }
 

@@ -275,7 +275,7 @@ public class DialogHandler {
                 if (area.isEmpty()) {
                     return MenuScreens.retry("Нужен номер региона числом, например <code>88</code>.", back);
                 }
-                rule.setAreaId(area.get());
+                rule.setArea(area.get(), null);
             }
             case RULE_LIMIT -> {
                 Optional<Integer> limit = number(text, 1, 100);

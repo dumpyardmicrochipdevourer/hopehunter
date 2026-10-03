@@ -110,6 +110,13 @@ public class VacancyScanner {
         if (cookies.isEmpty()) {
             return;
         }
+        // Свой интервал правила: ключ живёт чуть меньше интервала, чтобы проход, начавшийся на
+        // секунду раньше срока, не откладывал правило ещё на целый цикл сканера.
+        String scannedKey = "scan:" + rule.getId();
+        if (store.get(scannedKey).isPresent()) {
+            return;
+        }
+        store.set(scannedKey, "1", Duration.ofMinutes(rule.getIntervalMinutes()).minusMinutes(2));
 
         List<HhVacancy> vacancies;
         try {
@@ -130,7 +137,8 @@ public class VacancyScanner {
                 continue;
             }
             if (applicationLogRepository.existsByUserIdAndVacancyId(user.getId(), vacancy.id())
-                    || RuleMatcher.rejection(rule, vacancy).isPresent()) {
+                    || RuleMatcher.rejection(rule, vacancy).isPresent()
+                    || (vacancy.hasTest() && rule.isSkipWithTest())) {
                 store.addToSet(seenKey, vacancy.id(), SEEN_TTL);
                 continue;
             }
@@ -200,6 +208,6 @@ public class VacancyScanner {
 
     static SearchQuery query(ResponseRule rule) {
         return new SearchQuery(rule.getKeywords(), rule.isTitleOnly(), rule.getAreaId(),
-                rule.getSalaryFrom(), rule.getExperience(), rule.isRemoteOnly());
+                rule.getSalaryFrom(), rule.isOnlyWithSalary(), rule.getExperience(), rule.isRemoteOnly());
     }
 }

@@ -14,7 +14,9 @@ public record RuleView(
         String minusWords,
         boolean titleOnly,
         Integer areaId,
+        String areaName,
         Integer salaryFrom,
+        boolean onlyWithSalary,
         String experience,
         boolean remoteOnly,
         String companyBlacklist,
@@ -23,15 +25,19 @@ public record RuleView(
         Long letterTemplateId,
         RuleMode mode,
         int dailyLimit,
+        int intervalMinutes,
+        boolean skipWithTest,
         boolean enabled,
         boolean ready,
         int sentToday) {
 
     public static RuleView of(ResponseRule rule, int sentToday) {
         return new RuleView(rule.getId(), rule.getName(), rule.getKeywords(), rule.getMinusWords(),
-                rule.isTitleOnly(), rule.getAreaId(), rule.getSalaryFrom(), rule.getExperience(),
+                rule.isTitleOnly(), rule.getAreaId(), rule.getAreaName(), rule.getSalaryFrom(),
+                rule.isOnlyWithSalary(), rule.getExperience(),
                 rule.isRemoteOnly(), rule.getCompanyBlacklist(), rule.getResumeHash(), rule.getResumeTitle(),
-                rule.getLetterTemplateId(), rule.getMode(), rule.getDailyLimit(), rule.isEnabled(),
+                rule.getLetterTemplateId(), rule.getMode(), rule.getDailyLimit(), rule.getIntervalMinutes(),
+                rule.isSkipWithTest(), rule.isEnabled(),
                 rule.isReady(), sentToday);
     }
 }

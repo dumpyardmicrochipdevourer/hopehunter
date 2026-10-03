@@ -146,7 +146,7 @@ public class RuleCallbackHandler implements CallbackHandler {
                     menu.edit(press, screens.area(rule));
                 } else {
                     int areaId = parseLong(arg).orElse(0L).intValue();
-                    rule.setAreaId(areaId == 0 ? null : areaId);
+                    rule.setArea(areaId == 0 ? null : areaId, RuleScreens.AREAS.get(areaId));
                     save(press, rule, screens.search(rule));
                 }
             }

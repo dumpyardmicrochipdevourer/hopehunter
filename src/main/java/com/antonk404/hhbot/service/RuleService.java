@@ -114,12 +114,20 @@ public class RuleService {
         if (data.areaId() != null && data.areaId() <= 0) {
             throw new ValidationException("areaId", "Регион задаётся положительным номером.");
         }
-        rule.setAreaId(data.areaId());
+        rule.setArea(data.areaId(), text("areaName", data.areaName()));
 
         if (data.salaryFrom() != null && (data.salaryFrom() <= 0 || data.salaryFrom() > 100_000_000)) {
             throw new ValidationException("salaryFrom", "Зарплата - число в рублях больше нуля.");
         }
         rule.setSalaryFrom(data.salaryFrom());
+        rule.setOnlyWithSalary(data.onlyWithSalary() == null || data.onlyWithSalary());
+        rule.setSkipWithTest(data.skipWithTest() == null || data.skipWithTest());
+
+        int interval = data.intervalMinutes() == null ? ResponseRule.DEFAULT_INTERVAL_MINUTES : data.intervalMinutes();
+        if (!ResponseRule.INTERVALS_MINUTES.contains(interval)) {
+            throw new ValidationException("intervalMinutes", "Интервал - один из: " + ResponseRule.INTERVALS_MINUTES + " минут.");
+        }
+        rule.setIntervalMinutes(interval);
 
         if (data.experience() != null && !ResponseRule.EXPERIENCE_CODES.contains(data.experience())) {
             throw new ValidationException("experience", "Неизвестный код опыта.");

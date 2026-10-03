@@ -20,6 +20,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -79,6 +80,7 @@ class VacancyScannerTest {
         found(vacancy("1", "Java"));
 
         scanner.scanRule(rule);
+        store.delete("scan:7");
         scanner.scanRule(rule);
 
         verify(listener, times(1)).found(user, rule, vacancy("1", "Java"));
@@ -119,6 +121,7 @@ class VacancyScannerTest {
 
         verifyNoInteractions(applyService);
 
+        store.delete("scan:7");
         when(limiter.exhausted(rule)).thenReturn(false);
         when(applyService.apply(any(), any(), any())).thenReturn(new ApplyResult.Sent());
         scanner.scanRule(rule);
@@ -150,8 +153,9 @@ class VacancyScannerTest {
     }
 
     @Test
-    void vacancyWithTestGoesToTheUserEvenInAutoMode() {
+    void vacancyWithTestGoesToTheUserWhenNotSkipped() {
         rule.setMode(RuleMode.AUTO);
+        rule.setSkipWithTest(false);
         HhVacancy withTest = new HhVacancy("1", "Java", "Acme", "", "", "u", true, false);
         found(withTest);
         when(applyService.apply(user, rule, withTest)).thenReturn(new ApplyResult.NeedsTest());
@@ -162,11 +166,35 @@ class VacancyScannerTest {
     }
 
     @Test
+    void vacancyWithTestIsSkippedSilentlyByDefault() {
+        rule.setMode(RuleMode.AUTO);
+        found(new HhVacancy("1", "Java", "Acme", "", "", "u", true, false));
+
+        scanner.scanRule(rule);
+
+        verifyNoInteractions(applyService, listener);
+    }
+
+    /** Сканер ходит раз в 15 минут; правило с интервалом в час должно пропускать три прохода из четырёх. */
+    @Test
+    void ruleIsNotScannedAgainBeforeItsInterval() {
+        rule.setIntervalMinutes(60);
+        found(vacancy("1", "Java"));
+
+        scanner.scanRule(rule);
+        scanner.scanRule(rule);
+
+        verify(gateway, times(1)).search(any(), any(), anyInt());
+        assertEquals(java.time.Duration.ofMinutes(58), store.ttls.get("scan:7"));
+    }
+
+    @Test
     void expiredSessionIsReportedOnce() {
         when(gateway.search(any(), any(), anyInt())).thenThrow(new HhSessionExpiredException());
         when(account.markExpired(1L)).thenReturn(true, false);
 
         scanner.scanRule(rule);
+        store.delete("scan:7");
         scanner.scanRule(rule);
 
         verify(listener, times(1)).sessionExpired(user);
