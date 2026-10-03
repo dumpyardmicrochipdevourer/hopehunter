@@ -1,16 +1,18 @@
 package com.antonk404.hhbot.service;
 
-import com.antonk404.hhbot.InMemoryKeyValueStore;
 import com.antonk404.hhbot.domain.BotUser;
 import com.antonk404.hhbot.domain.ResponseRule;
 import com.antonk404.hhbot.domain.RuleMode;
-import com.antonk404.hhbot.hh.ApplyResult;
+import com.antonk404.hhbot.domain.dto.ApplyResult;
+import com.antonk404.hhbot.domain.dto.HhVacancy;
+import com.antonk404.hhbot.domain.repo.ApplicationLogRepository;
+import com.antonk404.hhbot.domain.repo.ResponseRuleRepository;
 import com.antonk404.hhbot.hh.HhGateway;
 import com.antonk404.hhbot.hh.HhSessionCookies;
-import com.antonk404.hhbot.hh.HhSessionExpiredException;
-import com.antonk404.hhbot.hh.HhVacancy;
-import com.antonk404.hhbot.repo.ApplicationLogRepository;
-import com.antonk404.hhbot.repo.ResponseRuleRepository;
+import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
+import com.antonk404.hhbot.service.util.Pauser;
+import com.antonk404.hhbot.service.util.RateLimiter;
+import com.antonk404.hhbot.store.InMemoryKeyValueStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;

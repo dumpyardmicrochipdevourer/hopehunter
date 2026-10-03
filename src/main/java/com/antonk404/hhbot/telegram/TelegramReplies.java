@@ -1,5 +1,6 @@
 package com.antonk404.hhbot.telegram;
 
+import com.antonk404.hhbot.telegram.view.Screen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

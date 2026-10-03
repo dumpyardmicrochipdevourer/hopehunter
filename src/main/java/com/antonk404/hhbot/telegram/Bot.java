@@ -1,8 +1,8 @@
 package com.antonk404.hhbot.telegram;
 
-import com.antonk404.hhbot.telegram.callback.CallbackHandler;
-import com.antonk404.hhbot.telegram.command.CommandHandler;
-import com.antonk404.hhbot.telegram.dialog.DialogHandler;
+import com.antonk404.hhbot.telegram.handler.callback.CallbackHandler;
+import com.antonk404.hhbot.telegram.handler.command.CommandHandler;
+import com.antonk404.hhbot.telegram.handler.dialog.DialogHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

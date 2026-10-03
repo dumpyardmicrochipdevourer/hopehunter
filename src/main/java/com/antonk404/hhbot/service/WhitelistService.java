@@ -1,10 +1,10 @@
 package com.antonk404.hhbot.service;
 
 import com.antonk404.hhbot.domain.BotUser;
-import com.antonk404.hhbot.repo.BotUserRepository;
-import com.antonk404.hhbot.repo.HhSessionRepository;
-import com.antonk404.hhbot.repo.LetterTemplateRepository;
-import com.antonk404.hhbot.repo.ResponseRuleRepository;
+import com.antonk404.hhbot.domain.repo.BotUserRepository;
+import com.antonk404.hhbot.domain.repo.HhSessionRepository;
+import com.antonk404.hhbot.domain.repo.LetterTemplateRepository;
+import com.antonk404.hhbot.domain.repo.ResponseRuleRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

@@ -2,11 +2,12 @@ package com.antonk404.hhbot.service;
 
 import com.antonk404.hhbot.domain.HhSession;
 import com.antonk404.hhbot.domain.SessionState;
+import com.antonk404.hhbot.domain.dto.HhProfile;
+import com.antonk404.hhbot.domain.repo.HhSessionRepository;
 import com.antonk404.hhbot.hh.HhGateway;
-import com.antonk404.hhbot.hh.HhProfile;
 import com.antonk404.hhbot.hh.HhSessionCookies;
-import com.antonk404.hhbot.hh.HhSessionExpiredException;
-import com.antonk404.hhbot.repo.HhSessionRepository;
+import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
+import com.antonk404.hhbot.service.util.CookieCipher;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;

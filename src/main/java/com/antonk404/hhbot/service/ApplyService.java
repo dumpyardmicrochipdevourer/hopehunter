@@ -5,12 +5,14 @@ import com.antonk404.hhbot.domain.ApplicationState;
 import com.antonk404.hhbot.domain.BotUser;
 import com.antonk404.hhbot.domain.LetterTemplate;
 import com.antonk404.hhbot.domain.ResponseRule;
-import com.antonk404.hhbot.hh.ApplyResult;
+import com.antonk404.hhbot.domain.dto.ApplyResult;
+import com.antonk404.hhbot.domain.dto.HhVacancy;
+import com.antonk404.hhbot.domain.repo.ApplicationLogRepository;
+import com.antonk404.hhbot.domain.repo.LetterTemplateRepository;
 import com.antonk404.hhbot.hh.HhGateway;
 import com.antonk404.hhbot.hh.HhSessionCookies;
-import com.antonk404.hhbot.hh.HhVacancy;
-import com.antonk404.hhbot.repo.ApplicationLogRepository;
-import com.antonk404.hhbot.repo.LetterTemplateRepository;
+import com.antonk404.hhbot.service.util.LetterRenderer;
+import com.antonk404.hhbot.service.util.RateLimiter;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;

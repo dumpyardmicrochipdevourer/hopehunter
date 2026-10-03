@@ -1,5 +1,6 @@
 package com.antonk404.hhbot.hh;
 
+import com.antonk404.hhbot.hh.exceptions.HhException;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;

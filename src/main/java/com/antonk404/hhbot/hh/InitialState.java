@@ -1,5 +1,6 @@
 package com.antonk404.hhbot.hh;
 
+import com.antonk404.hhbot.hh.exceptions.HhException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
