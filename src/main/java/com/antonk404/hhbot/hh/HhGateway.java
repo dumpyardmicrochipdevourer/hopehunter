@@ -1,6 +1,7 @@
 package com.antonk404.hhbot.hh;
 
 import com.antonk404.hhbot.domain.dto.ApplyResult;
+import com.antonk404.hhbot.domain.dto.HhArea;
 import com.antonk404.hhbot.domain.dto.HhProfile;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
 import com.antonk404.hhbot.domain.dto.SearchQuery;
@@ -28,6 +29,12 @@ public interface HhGateway {
      * @param page с нуля
      */
     List<HhVacancy> search(HhSessionCookies cookies, SearchQuery query, int page);
+
+    /**
+     * Подсказка регионов по началу названия - та же, что в строке поиска на сайте.
+     * Сессия не нужна: справочник открыт всем.
+     */
+    List<HhArea> areas(String text);
 
     /** Не бросает на ожидаемых отказах hh - они приходят как {@link ApplyResult}. */
     ApplyResult apply(HhSessionCookies cookies, String vacancyId, String resumeHash, String letter);

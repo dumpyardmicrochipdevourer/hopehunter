@@ -9,7 +9,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.ColumnDefault;
+
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -25,6 +28,10 @@ public class ResponseRule {
 
     public static final int DEFAULT_DAILY_LIMIT = 30;
     public static final int MAX_DAILY_LIMIT = 100;
+    public static final int DEFAULT_INTERVAL_MINUTES = 15;
+
+    /** Как часто правило можно проверять. Меньше 15 минут нет: чаще сканер всё равно не ходит. */
+    public static final List<Integer> INTERVALS_MINUTES = List.of(15, 30, 60, 180);
 
     /** Коды опыта, которые понимает поиск hh. */
     public static final Set<String> EXPERIENCE_CODES =
@@ -56,8 +63,22 @@ public class ResponseRule {
     @Column(name = "area_id")
     private Integer areaId;
 
+    /** Название региона на момент выбора - чтобы показать правило без похода в hh. */
+    @Column(name = "area_name", length = 128)
+    private String areaName;
+
     @Column(name = "salary_from")
     private Integer salaryFrom;
+
+    /**
+     * Не показывать вакансии без указанной зарплаты. Имеет смысл только вместе с порогом: без
+     * него hh подмешивает вакансии без вилки, и порог перестаёт что-либо отсекать.
+     */
+    // ColumnDefault - для уже существующих строк: без него Hibernate не сможет добавить
+    // NOT NULL колонку в таблицу, где есть правила.
+    @ColumnDefault("true")
+    @Column(name = "only_with_salary", nullable = false)
+    private boolean onlyWithSalary = true;
 
     /** Код опыта hh: noExperience, between1And3, between3And6, moreThan6; null - любой. */
     @Column(length = 16)
@@ -87,6 +108,18 @@ public class ResponseRule {
 
     @Column(name = "daily_limit", nullable = false)
     private int dailyLimit = DEFAULT_DAILY_LIMIT;
+
+    @ColumnDefault("15")
+    @Column(name = "interval_minutes", nullable = false)
+    private int intervalMinutes = DEFAULT_INTERVAL_MINUTES;
+
+    /**
+     * Молча пропускать вакансии с тестом работодателя. Выключено - бот присылает их ссылкой,
+     * чтобы человек откликнулся сам: автоматически на такие не откликнуться в любом случае.
+     */
+    @ColumnDefault("true")
+    @Column(name = "skip_with_test", nullable = false)
+    private boolean skipWithTest = true;
 
     @Column(nullable = false)
     private boolean enabled = false;
@@ -151,8 +184,38 @@ public class ResponseRule {
         return areaId;
     }
 
-    public void setAreaId(Integer areaId) {
+    public String getAreaName() {
+        return areaName;
+    }
+
+    /** Регион задаётся парой: id для запроса и название для человека. null - без ограничения. */
+    public void setArea(Integer areaId, String areaName) {
         this.areaId = areaId;
+        this.areaName = areaId == null ? null : areaName;
+    }
+
+    public boolean isOnlyWithSalary() {
+        return onlyWithSalary;
+    }
+
+    public void setOnlyWithSalary(boolean onlyWithSalary) {
+        this.onlyWithSalary = onlyWithSalary;
+    }
+
+    public int getIntervalMinutes() {
+        return intervalMinutes;
+    }
+
+    public void setIntervalMinutes(int intervalMinutes) {
+        this.intervalMinutes = intervalMinutes;
+    }
+
+    public boolean isSkipWithTest() {
+        return skipWithTest;
+    }
+
+    public void setSkipWithTest(boolean skipWithTest) {
+        this.skipWithTest = skipWithTest;
     }
 
     public Integer getSalaryFrom() {

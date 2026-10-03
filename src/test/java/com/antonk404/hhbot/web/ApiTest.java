@@ -60,8 +60,8 @@ class ApiTest {
     }
 
     private static RuleView view() {
-        return new RuleView(7L, "java", "java", null, true, 1, null, null, false, null,
-                "hash", "Java dev", null, RuleMode.CONFIRM, 30, false, true, 0);
+        return new RuleView(7L, "java", "java", null, true, 1, "Москва", null, true, null, false, null,
+                "hash", "Java dev", null, RuleMode.CONFIRM, 30, 15, true, false, true, 0);
     }
 
     @Test
@@ -100,14 +100,15 @@ class ApiTest {
 
     @Test
     void createsRuleFromFormJson() throws Exception {
-        when(ruleService.create(eq(user), eq(new RuleData("java", "java OR kotlin", null, true, 1, 200000,
-                "between1And3", true, null, "hash", null, RuleMode.AUTO, 20)))).thenReturn(view());
+        when(ruleService.create(eq(user), eq(new RuleData("java", "java OR kotlin", null, true, 1, "Москва", 200000, false,
+                "between1And3", true, null, "hash", null, RuleMode.AUTO, 20, 30, false)))).thenReturn(view());
 
         mvc.perform(post("/api/rules").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"name":"java","keywords":"java OR kotlin","titleOnly":true,"areaId":1,
-                                 "salaryFrom":200000,"experience":"between1And3","remoteOnly":true,
-                                 "resumeHash":"hash","mode":"AUTO","dailyLimit":20}"""))
+                                {"name":"java","keywords":"java OR kotlin","titleOnly":true,"areaId":1,"areaName":"Москва",
+                                 "salaryFrom":200000,"onlyWithSalary":false,"experience":"between1And3",
+                                 "remoteOnly":true,"resumeHash":"hash","mode":"AUTO","dailyLimit":20,
+                                 "intervalMinutes":30,"skipWithTest":false}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(7));
     }

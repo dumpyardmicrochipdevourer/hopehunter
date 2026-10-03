@@ -60,7 +60,14 @@ class RuleServiceTest {
     }
 
     private static RuleData data(String name, String keywords, String resumeHash, Integer limit) {
-        return new RuleData(name, keywords, " ", null, null, null, null, null, null, resumeHash, null, null, limit);
+        return new RuleData(name, keywords, " ", null, null, null, null, null, null, null, null, resumeHash,
+                null, null, limit, null, null);
+    }
+
+    /** Правило с одним необычным полем - остальное как в {@link #data}. */
+    private static RuleData with(Integer salary, String experience, Long letterId, Integer interval) {
+        return new RuleData("java", "java", null, null, null, null, salary, null, experience, null, null, "hash",
+                letterId, null, null, interval, null);
     }
 
     @Test
@@ -72,6 +79,9 @@ class RuleServiceTest {
         assertEquals(RuleMode.CONFIRM, view.mode());
         assertTrue(view.titleOnly());
         assertEquals(30, view.dailyLimit());
+        assertEquals(15, view.intervalMinutes());
+        assertTrue(view.onlyWithSalary());
+        assertTrue(view.skipWithTest());
         assertNull(view.minusWords());
         assertEquals("Java dev", view.resumeTitle());
     }
@@ -101,11 +111,30 @@ class RuleServiceTest {
         assertEquals("name", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, data(" ", "java", "hash", 10))).getField());
         assertEquals("experience", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, new RuleData("java", "java", null, null, null, null, "tenYears",
-                        null, null, "hash", null, null, null))).getField());
+                () -> service.update(user, 7L, with(null, "tenYears", null, null))).getField());
         assertEquals("salaryFrom", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, new RuleData("java", "java", null, null, null, -5, null,
-                        null, null, "hash", null, null, null))).getField());
+                () -> service.update(user, 7L, with(-5, null, null, null))).getField());
+    }
+
+    @Test
+    void intervalMustBeOneOfTheOffered() {
+        assertEquals("intervalMinutes", assertThrows(ValidationException.class,
+                () -> service.update(user, 7L, with(null, null, null, 1))).getField());
+
+        service.update(user, 7L, with(null, null, null, 60));
+        assertEquals(60, existing.getIntervalMinutes());
+    }
+
+    @Test
+    void areaKeepsItsNameAndClearsWithIt() {
+        service.update(user, 7L, new RuleData("java", "java", null, null, 88, " Казань ", null, null, null, null,
+                null, "hash", null, null, null, null, null));
+        assertEquals(88, existing.getAreaId());
+        assertEquals("Казань", existing.getAreaName());
+
+        service.update(user, 7L, new RuleData("java", "java", null, null, null, "Казань", null, null, null, null,
+                null, "hash", null, null, null, null, null));
+        assertNull(existing.getAreaName());
     }
 
     @Test
@@ -113,12 +142,10 @@ class RuleServiceTest {
         when(templates.findByIdAndUserId(5L, 1L)).thenReturn(Optional.empty());
 
         assertEquals("letterTemplateId", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, new RuleData("java", "java", null, null, null, null, null,
-                        null, null, "hash", 5L, null, null))).getField());
+                () -> service.update(user, 7L, with(null, null, 5L, null))).getField());
 
         when(templates.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(new LetterTemplate(1L, "main", "text")));
-        service.update(user, 7L, new RuleData("java", "java", null, null, null, null, null,
-                null, null, "hash", 5L, null, null));
+        service.update(user, 7L, with(null, null, 5L, null));
         assertEquals(5L, existing.getLetterTemplateId());
     }
 

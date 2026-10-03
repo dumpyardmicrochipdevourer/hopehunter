@@ -117,7 +117,7 @@ public class RuleScreens {
 
     /** Одна строка с фильтрами, которые человек действительно задал; пустые не перечисляются. */
     private static String filters(ResponseRule rule) {
-        StringBuilder out = new StringBuilder(areaName(rule.getAreaId()));
+        StringBuilder out = new StringBuilder(areaName(rule));
         if (rule.getSalaryFrom() != null) {
             out.append(" · от ").append(money(rule.getSalaryFrom())).append(" ₽");
         }
@@ -147,7 +147,7 @@ public class RuleScreens {
         return new Screen(text, Kb.of()
                 .row(btn("✏️ Ключевые слова", Cb.rule(id, "kw")))
                 .row(field("Искать", rule.isTitleOnly() ? "в названии" : "везде", Cb.rule(id, "title")))
-                .row(field("Регион", areaName(rule.getAreaId()), Cb.rule(id, "area")),
+                .row(field("Регион", areaName(rule), Cb.rule(id, "area")),
                         field("Удалёнка", rule.isRemoteOnly() ? "да" : "не важно", Cb.rule(id, "remote")))
                 .row(field("Зарплата", rule.getSalaryFrom() == null ? "любая" : "от " + money(rule.getSalaryFrom()),
                         Cb.rule(id, "sal")))
@@ -190,7 +190,7 @@ public class RuleScreens {
         Long id = rule.getId();
         Kb keyboard = Kb.of();
         AREAS.forEach((areaId, name) -> keyboard.row(btn(name, Cb.rule(id, "area:" + areaId))));
-        return new Screen("<b>Регион поиска</b>\n\nСейчас: " + Html.esc(areaName(rule.getAreaId())) + ".", keyboard
+        return new Screen("<b>Регион поиска</b>\n\nСейчас: " + Html.esc(areaName(rule)) + ".", keyboard
                 .row(btn("Не важно", Cb.rule(id, "area:0")), btn("Другой город…", Cb.rule(id, "areaid")))
                 .row(btn("« Назад", Cb.rule(id, SEARCH)))
                 .build());
@@ -330,11 +330,14 @@ public class RuleScreens {
                 .orElse("без письма");
     }
 
-    static String areaName(Integer areaId) {
-        if (areaId == null) {
+    static String areaName(ResponseRule rule) {
+        if (rule.getAreaId() == null) {
             return "любой регион";
         }
-        return AREAS.getOrDefault(areaId, "регион " + areaId);
+        if (rule.getAreaName() != null) {
+            return rule.getAreaName();
+        }
+        return AREAS.getOrDefault(rule.getAreaId(), "регион " + rule.getAreaId());
     }
 
     static String money(int amount) {
