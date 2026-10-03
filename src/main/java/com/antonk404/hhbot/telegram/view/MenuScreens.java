@@ -68,7 +68,6 @@ public class MenuScreens {
         }
 
         StringBuilder text = new StringBuilder("<b>Автоотклики на hh.ru</b>\n\n");
-        text.append("Я ищу вакансии по твоим правилам и откликаюсь твоим резюме. До первого отклика три шага:\n\n");
         text.append(step(connected, "Подключить аккаунт hh"));
         text.append(step(!rules.isEmpty(), "Создать правило: что искать и чем откликаться"));
         text.append(step(enabled > 0, "Включить правило"));
@@ -160,7 +159,7 @@ public class MenuScreens {
 
     /** Тот же вопрос после неподходящего ответа: что не так и что прислать. */
     public static Screen retry(String html, String cancelData) {
-        return prompt("⚠️ " + html + "\n\nПришли ещё раз или нажми «Отмена».", cancelData);
+        return prompt("⚠️ " + html, cancelData);
     }
 
     /**
