@@ -78,8 +78,7 @@ public class RuleScreens {
             keyboard.row(btn((rule.isEnabled() ? "🟢 " : "⚪️ ") + rule.getName(), Cb.rule(rule.getId(), "show")));
         }
         String text = rules.isEmpty()
-                ? "<b>Правила</b>\n\nПока ни одного. Правило - это поиск плюс резюме и письмо, которыми я "
-                + "откликаюсь на найденное. Можно завести несколько: под разные должности или города."
+                ? "<b>Правила</b>\n\nПока ни одного."
                 : "<b>Правила</b>\n\n🟢 включено · ⚪️ выключено";
         return new Screen(text, keyboard
                 .row(btn("➕ Новое правило", Cb.RULE_NEW))
@@ -175,10 +174,9 @@ public class RuleScreens {
         boolean auto = rule.getMode() == RuleMode.AUTO;
         String text = "<b>Как откликаться</b> · " + Html.esc(rule.getName()) + "\n\n"
                 + (auto
-                ? "⚡️ <b>Сам.</b> Нахожу вакансию, откликаюсь и сообщаю тебе."
-                : "👀 <b>С подтверждением.</b> Присылаю вакансию, откликаюсь по твоей кнопке.")
-                + "\n\nНе больше " + rule.getDailyLimit() + " откликов в день. Чем меньше, тем спокойнее для аккаунта: "
-                + "hh следит за теми, кто откликается пачками.";
+                ? "⚡️ <b>Сам</b>"
+                : "👀 <b>С подтверждением</b>")
+                + "\n\nЛимит: " + rule.getDailyLimit() + " в день";
         return new Screen(text, Kb.of()
                 .row(btn(auto ? "Переключить: спрашивать меня" : "Переключить: откликаться самому", Cb.rule(id, "mode")))
                 .row(field("Лимит в день", String.valueOf(rule.getDailyLimit()), Cb.rule(id, "lim")))
@@ -200,7 +198,7 @@ public class RuleScreens {
         Long id = rule.getId();
         Kb keyboard = Kb.of();
         EXPERIENCE.forEach((code, name) -> keyboard.row(btn(name, Cb.rule(id, "exp:" + code))));
-        return new Screen("<b>Опыт в вакансии</b>\n\nКакой опыт должен требовать работодатель.", keyboard
+        return new Screen("<b>Опыт в вакансии</b>", keyboard
                 .row(btn("Не важно", Cb.rule(id, "exp:any")))
                 .row(btn("« Назад", Cb.rule(id, SEARCH)))
                 .build());
@@ -214,8 +212,7 @@ public class RuleScreens {
                     .map(amount -> btn("от " + amount / 1000 + " тыс.", Cb.rule(id, "sal:" + amount)))
                     .toArray(InlineKeyboardButton[]::new));
         }
-        return new Screen("<b>Зарплата от</b>\n\nВ рублях на руки или до вычета - как указал работодатель. "
-                + "С порогом в выдачу не попадут вакансии, где зарплата не указана.", keyboard
+        return new Screen("<b>Зарплата от</b>", keyboard
                 .row(btn("Не важно", Cb.rule(id, "sal:0")), btn("Своя сумма…", Cb.rule(id, "salx")))
                 .row(btn("« Назад", Cb.rule(id, SEARCH)))
                 .build());
@@ -252,8 +249,8 @@ public class RuleScreens {
         List<LetterTemplate> templates = letterTemplateRepository.findByUserIdOrderByIdAsc(user.getId());
         templates.forEach(template -> keyboard.row(btn(template.getName(), Cb.rule(id, "lt:" + template.getId()))));
         String text = templates.isEmpty()
-                ? "<b>Письмо</b>\n\nШаблонов пока нет. Создай письмо - и выбери его здесь."
-                : "<b>Письмо</b>\n\nКакое прикладывать к отклику?";
+                ? "<b>Письмо</b>\n\nШаблонов нет."
+                : "<b>Письмо</b>";
         if (templates.isEmpty()) {
             keyboard.row(btn("➕ Создать письмо", Cb.LETTER_NEW));
         }
@@ -265,14 +262,7 @@ public class RuleScreens {
 
     public Screen wizardMode(ResponseRule rule) {
         Long id = rule.getId();
-        return new Screen("""
-                <b>Новое правило · шаг 4 из 4</b>
-
-                Как откликаться?
-
-                👀 <b>Спрашивать меня</b> - присылаю вакансию, откликаюсь по твоей кнопке. С этого лучше начать.
-
-                ⚡️ <b>Самому</b> - откликаюсь сразу и сообщаю.""", Kb.of()
+        return new Screen("<b>Новое правило · шаг 4 из 4</b>\n\nКак откликаться?", Kb.of()
                 .row(btn("👀 Спрашивать меня", Cb.rule(id, "wm:confirm")))
                 .row(btn("⚡️ Откликаться самому", Cb.rule(id, "wm:auto")))
                 .build());
@@ -281,10 +271,10 @@ public class RuleScreens {
     /** Конец мастера: правило собрано, осталось посмотреть выдачу и включить. */
     public Screen wizardDone(ResponseRule rule) {
         Long id = rule.getId();
-        String text = "✅ <b>Правило «" + Html.esc(rule.getName()) + "» готово</b>, пока выключено.\n\n"
+        String text = "✅ <b>Правило «" + Html.esc(rule.getName()) + "» готово</b>, выключено.\n\n"
                 + (rule.isReady()
-                ? "Посмотри, что оно находит, и включай. Регион, зарплату и минус-слова можно добавить в настройках."
-                : "⚠️ Резюме не выбрано - без него правило не включить. Выбери его в настройках.");
+                ? ""
+                : "⚠️ Резюме не выбрано.");
         return new Screen(text, Kb.of()
                 .row(btn("🔍 Посмотреть, что найдёт", Cb.rule(id, "test")))
                 .row(btn("🟢 Включить", Cb.rule(id, "toggle")))
@@ -294,7 +284,7 @@ public class RuleScreens {
 
     public Screen delete(ResponseRule rule) {
         Long id = rule.getId();
-        return new Screen("Удалить правило «" + Html.esc(rule.getName()) + "»?\n\nЖурнал откликов останется.", Kb.of()
+        return new Screen("Удалить правило «" + Html.esc(rule.getName()) + "»?", Kb.of()
                 .row(btn("🗑 Да, удалить", Cb.rule(id, "delok")), btn("Нет", Cb.rule(id, "show")))
                 .build());
     }
@@ -304,10 +294,9 @@ public class RuleScreens {
         StringBuilder text = new StringBuilder("<b>Проверка · ").append(Html.esc(rule.getName())).append("</b>\n");
         text.append("Ничего не отправлено.\n");
         if (vacancies.isEmpty()) {
-            text.append("\nНа первой странице выдачи ничего не подошло. Попробуй ослабить фильтры "
-                    + "или искать не только в названии.");
+            text.append("\nНичего не подошло.");
         } else {
-            text.append("Подходит на первой странице: <b>").append(vacancies.size()).append("</b>\n");
+            text.append("Подходит: <b>").append(vacancies.size()).append("</b>\n");
         }
         vacancies.stream().limit(shown).forEach(vacancy -> text.append('\n').append(VacancyView.text(vacancy))
                 .append(vacancy.hasTest() ? "\n<i>с тестом - пришлю ссылкой</i>" : "").append('\n'));

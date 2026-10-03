@@ -43,16 +43,14 @@ public class VacancyPresenter implements ScanListener {
     @Override
     public void stopped(BotUser user, String reason) {
         replies.menu(user.getChatId(), new Screen(
-                "⛔ <b>Остановил отклики до завтра</b>\n\n" + Html.esc(capitalize(reason)) + ". Завтра продолжу сам.\n\n"
-                        + "Зайди на hh.ru с браузера и убедись, что аккаунт в порядке.",
+                "⛔ <b>Отклики остановлены до завтра</b>\n\n" + Html.esc(capitalize(reason)) + ".",
                 Kb.of().row(Kb.link("Открыть hh.ru", "https://hh.ru/applicant/negotiations")).build()));
     }
 
     @Override
     public void sessionExpired(BotUser user) {
         replies.menu(user.getChatId(), new Screen(
-                "🔑 <b>hh разлогинил сессию</b>\n\nОтклики стоят, пока не подключишь аккаунт заново. "
-                        + "Правила и письма на месте.",
+                "🔑 <b>hh разлогинил сессию</b>",
                 Kb.of().row(btn("🔑 Подключить заново", Cb.CONNECT)).build()));
     }
 

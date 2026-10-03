@@ -32,12 +32,7 @@ public class RuleCallbackHandler implements CallbackHandler {
     /** Сколько вакансий показывать в «Проверить сейчас»: хватает оценить выдачу, влезает в сообщение. */
     private static final int PREVIEW_SIZE = 8;
 
-    public static final String NEW_RULE_PROMPT = """
-            <b>Новое правило · шаг 1 из 4</b>
-
-            Как его назвать? Название видишь только ты.
-
-            Например: <code>Java, удалёнка</code>""";
+    public static final String NEW_RULE_PROMPT = "<b>Новое правило · шаг 1 из 4</b>\n\nНазвание:";
 
     private final Access access;
     private final ResponseRuleRepository responseRuleRepository;
@@ -107,39 +102,19 @@ public class RuleCallbackHandler implements CallbackHandler {
             case RuleScreens.REPLY -> menu.edit(press, screens.reply(rule));
             case RuleScreens.HOW -> menu.edit(press, screens.how(rule));
 
-            case "kw" -> ask(press, rule, Step.RULE_KEYWORDS, RuleScreens.SEARCH, """
-                    <b>Ключевые слова</b>
-
-                    Напиши так, как искал бы на hh. Например: <code>java разработчик</code>
-
-                    Можно точнее: <code>java OR kotlin</code>, <code>"team lead"</code>, \
-                    <code>python NOT стажёр</code>""");
-            case "minus" -> ask(press, rule, Step.RULE_MINUS, RuleScreens.SEARCH, """
-                    <b>Минус-слова</b>
-
-                    Через запятую. Вакансию с любым из них в названии я пропущу.
-
-                    Например: <code>senior, lead, стажёр</code>
-
-                    Чтобы очистить, пришли <code>-</code>""");
-            case "bl" -> ask(press, rule, Step.RULE_BLACKLIST, RuleScreens.SEARCH, """
-                    <b>Стоп-лист компаний</b>
-
-                    Через запятую, достаточно части названия. Этим компаниям откликаться не буду.
-
-                    Например: <code>кадровое агентство, аутстафф</code>
-
-                    Чтобы очистить, пришли <code>-</code>""");
+            case "kw" -> ask(press, rule, Step.RULE_KEYWORDS, RuleScreens.SEARCH,
+                    "<b>Ключевые слова</b>\n\nнапример: <code>devops OR sre</code>");
+            case "minus" -> ask(press, rule, Step.RULE_MINUS, RuleScreens.SEARCH,
+                    "<b>Минус-слова</b> через запятую\n\nочистить: <code>-</code>");
+            case "bl" -> ask(press, rule, Step.RULE_BLACKLIST, RuleScreens.SEARCH,
+                    "<b>Стоп-лист компаний</b> через запятую\n\nочистить: <code>-</code>");
             case "name" -> ask(press, rule, Step.RULE_NAME, "show", "<b>Новое название правила</b>");
-            case "areaid" -> ask(press, rule, Step.RULE_AREA, RuleScreens.SEARCH, """
-                    <b>Другой город</b>
-
-                    Нужен номер региона hh. Открой поиск на hh.ru, выбери город и посмотри в адресе \
-                    страницы: <code>area=88</code> - это Казань, пришли <code>88</code>.""");
+            case "areaid" -> ask(press, rule, Step.RULE_AREA, RuleScreens.SEARCH,
+                    "<b>Номер региона hh</b>\n\nиз адреса поиска: <code>area=88</code>");
             case "salx" -> ask(press, rule, Step.RULE_SALARY, RuleScreens.SEARCH,
-                    "<b>Зарплата от</b>\n\nЧисло в рублях. Например: <code>180000</code>");
+                    "<b>Зарплата от</b>, число");
             case "limx" -> ask(press, rule, Step.RULE_LIMIT, RuleScreens.HOW,
-                    "<b>Лимит откликов в день</b>\n\nЧисло от 1 до " + ResponseRule.MAX_DAILY_LIMIT + ".");
+                    "<b>Лимит в день</b>, 1–" + ResponseRule.MAX_DAILY_LIMIT);
 
             case "area" -> {
                 if (arg.isEmpty()) {
