@@ -44,6 +44,12 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       HH_COOKIE_KEY: ${HH_COOKIE_KEY}
+      # Публичный https-адрес мини-приложения; пусто - бот работает только кнопками в чате.
+      BOT_WEBAPP_URL: ${BOT_WEBAPP_URL:-}
+    ports:
+      # Только на loopback: наружу приложение смотрит через обратный прокси с TLS. Telegram
+      # открывает мини-приложения исключительно по https, так что голый порт всё равно бесполезен.
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
 
 volumes:
   postgres_data:

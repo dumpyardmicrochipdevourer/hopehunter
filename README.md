@@ -50,6 +50,41 @@ docker compose up -d --build
 
 Настройки сканера и их значения по умолчанию — в `src/main/resources/application.properties`.
 
+## Мини-приложение
+
+Настройки (аккаунт, правила, письма, статистика) доступны и как Telegram Mini App; карточки вакансий и
+уведомления остаются в чате. Включается переменной `BOT_WEBAPP_URL` — тогда в меню бота появляется кнопка
+«Открыть приложение». Адрес обязан быть `https`: приложение на `127.0.0.1:8080`, перед ним нужен обратный
+прокси с сертификатом.
+
+Страницы кладутся в `src/main/resources/static/` (отдаются с `/`) либо раздаются отдельно — тогда
+`/api/**` нужно проксировать на приложение.
+
+Каждый запрос к API несёт заголовок `Authorization: tma <initData>`, где `initData` —
+`window.Telegram.WebApp.initData`. Сервер проверяет подпись Telegram и вайтлист; отдельного входа нет.
+
+| Метод | Путь | Что делает |
+|---|---|---|
+| GET | `/api/me` | Главный экран: аккаунт, число правил, отклики сегодня, пауза, стоп до завтра |
+| PUT | `/api/me/pause` | `{paused}` |
+| GET | `/api/stats` | Счётчики и последние отклики |
+| GET | `/api/meta` | Справочники форм: регионы, опыт, алиасы, пределы лимита |
+| GET | `/api/account` | `{state: NONE \| ACTIVE \| EXPIRED, ownerName}` |
+| PUT | `/api/account/cookies` | `{value}` — кука в любом виде; проверяется на hh и сохраняется |
+| DELETE | `/api/account` | Отключить |
+| GET | `/api/account/resumes` | Резюме с hh: `[{hash, title}]` |
+| GET, POST | `/api/rules` | Список; создание (правило создаётся выключенным) |
+| GET, PUT, DELETE | `/api/rules/{id}` | Форма шлёт правило целиком |
+| PUT | `/api/rules/{id}/enabled` | `{enabled}` |
+| GET | `/api/rules/{id}/preview` | Что правило найдёт сейчас, без откликов |
+| GET, POST | `/api/letters` | Список; создание |
+| PUT, DELETE | `/api/letters/{id}` | |
+| POST | `/api/letters/preview` | `{body}` → как текст уйдёт на настоящую вакансию |
+
+Ошибки: `{error, message, field}`. `message` — готовая фраза для человека, `field` — поле формы.
+Коды: `unauthorized` 401, `forbidden` 403, `validation` 400, `not_found` 404,
+`hh_session_expired` 409 (вести на подключение аккаунта), `hh_unavailable` 502.
+
 ## Что проверено, а что нет
 
 Поиск вакансий проверен на живом сайте. Список резюме и сам отклик требуют залогиненной сессии и

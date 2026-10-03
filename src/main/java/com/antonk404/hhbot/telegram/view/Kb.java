@@ -1,6 +1,7 @@
 package com.antonk404.hhbot.telegram.view;
 
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 
@@ -50,6 +51,11 @@ public final class Kb {
      */
     public static InlineKeyboardButton field(String name, String value, String data) {
         return btn(name + ": " + Html.clip(value, MAX_VALUE), data);
+    }
+
+    /** Кнопка, открывающая мини-приложение внутри Telegram. Адрес обязан быть https. */
+    public static InlineKeyboardButton webApp(String text, String url) {
+        return InlineKeyboardButton.builder().text(text).webApp(new WebAppInfo(url)).build();
     }
 
     public static InlineKeyboardButton link(String text, String url) {
