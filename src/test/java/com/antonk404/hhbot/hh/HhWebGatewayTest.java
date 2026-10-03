@@ -29,20 +29,25 @@ class HhWebGatewayTest {
 
     /** Отдаёт заранее заданный ответ и запоминает, о чём его спросили. */
     private static final class FakeHttp implements HhHttp {
-        private final Response response;
+        private final List<Response> responses;
         private final List<String> urls = new ArrayList<>();
         private Map<String, String> headers;
         private Map<String, String> form;
 
-        private FakeHttp(Response response) {
-            this.response = response;
+        /** Ответы по порядку запросов; последний повторяется. */
+        private FakeHttp(Response... responses) {
+            this.responses = List.of(responses);
+        }
+
+        private Response next() {
+            return responses.get(Math.min(urls.size(), responses.size()) - 1);
         }
 
         @Override
         public Response get(String url, Map<String, String> headers) {
             this.urls.add(url);
             this.headers = headers;
-            return response;
+            return next();
         }
 
         @Override
@@ -50,7 +55,7 @@ class HhWebGatewayTest {
             this.urls.add(url);
             this.headers = headers;
             this.form = form;
-            return response;
+            return next();
         }
     }
 
@@ -141,6 +146,46 @@ class HhWebGatewayTest {
         FakeHttp http = new FakeHttp(new HhHttp.Response(302, "", "/account/login?backurl=%2Fapplicant%2Fresumes"));
 
         assertThrows(HhSessionExpiredException.class, () -> gateway(http).profile(COOKIES));
+    }
+
+    /** hh редиректит и живых пользователей - со старого адреса страницы на новый. Это не мёртвая сессия. */
+    @Test
+    void followsRedirectsInsideHh() {
+        FakeHttp http = new FakeHttp(
+                new HhHttp.Response(302, "", "/applicant/my_resumes?from=old"),
+                ok("<template id=\"HH-Lux-InitialState\">{&#34;account&#34;:{&#34;firstName&#34;:&#34;А&#34;,"
+                        + "&#34;email&#34;:&#34;a@b&#34;},&#34;applicantResumes&#34;:[]}</template>"));
+
+        HhProfile profile = gateway(http).profile(COOKIES);
+
+        assertEquals("А", profile.ownerName());
+        assertEquals(List.of("https://hh.ru/applicant/resumes", "https://hh.ru/applicant/my_resumes?from=old"), http.urls);
+    }
+
+    @Test
+    void redirectAfterRedirectToLoginIsStillAnExpiredSession() {
+        FakeHttp http = new FakeHttp(
+                new HhHttp.Response(301, "", "https://moscow.hh.ru/applicant/resumes"),
+                new HhHttp.Response(302, "", "/account/login?backurl=x"));
+
+        assertThrows(HhSessionExpiredException.class, () -> gateway(http).profile(COOKIES));
+    }
+
+    /** Куки сессии не должны уехать на чужой домен вслед за редиректом. */
+    @Test
+    void doesNotFollowRedirectsOffSite() {
+        FakeHttp http = new FakeHttp(new HhHttp.Response(302, "", "https://evil.example/hh.ru"));
+
+        assertThrows(HhException.class, () -> gateway(http).profile(COOKIES));
+        assertEquals(1, http.urls.size());
+    }
+
+    @Test
+    void redirectLoopEndsWithAnError() {
+        FakeHttp http = new FakeHttp(new HhHttp.Response(302, "", "/applicant/resumes"));
+
+        assertThrows(HhException.class, () -> gateway(http).profile(COOKIES));
+        assertEquals(5, http.urls.size());
     }
 
     @Test
