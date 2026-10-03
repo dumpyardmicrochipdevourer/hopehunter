@@ -18,6 +18,8 @@ public class DialogState {
     public enum Step {
         ACCOUNT_COOKIES,
         RULE_NEW,
+        /** Второй шаг мастера: ключевые слова только что созданного правила. */
+        RULE_WIZARD_KEYWORDS,
         RULE_NAME,
         RULE_KEYWORDS,
         RULE_MINUS,
