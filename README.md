@@ -57,8 +57,9 @@ docker compose up -d --build
 «Открыть приложение». Адрес обязан быть `https`: приложение на `127.0.0.1:8080`, перед ним нужен обратный
 прокси с сертификатом.
 
-Страницы кладутся в `src/main/resources/static/` (отдаются с `/`) либо раздаются отдельно — тогда
-`/api/**` нужно проксировать на приложение.
+Само приложение — `src/main/resources/static/` (`index.html`, `app.css`, `app.js`), отдаётся с `/` этим же
+сервисом. Без сборки и фреймворка: один файл скрипта, маршруты через `#`. Вёрстка — по макету hopehunter,
+тёмная тема, токены в начале `app.css`.
 
 Каждый запрос к API несёт заголовок `Authorization: tma <initData>`, где `initData` —
 `window.Telegram.WebApp.initData`. Сервер проверяет подпись Telegram и вайтлист; отдельного входа нет.
@@ -73,6 +74,7 @@ docker compose up -d --build
 | PUT | `/api/account/cookies` | `{value}` — кука в любом виде; проверяется на hh и сохраняется |
 | DELETE | `/api/account` | Отключить |
 | GET | `/api/account/resumes` | Резюме с hh: `[{hash, title}]` |
+| GET | `/api/areas?q=` | Поиск города по названию — подсказка hh, от двух букв |
 | GET, POST | `/api/rules` | Список; создание (правило создаётся выключенным) |
 | GET, PUT, DELETE | `/api/rules/{id}` | Форма шлёт правило целиком |
 | PUT | `/api/rules/{id}/enabled` | `{enabled}` |
