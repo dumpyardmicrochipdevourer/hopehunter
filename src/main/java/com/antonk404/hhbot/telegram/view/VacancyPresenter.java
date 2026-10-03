@@ -5,10 +5,10 @@ import com.antonk404.hhbot.domain.ResponseRule;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
 import com.antonk404.hhbot.service.ScanListener;
 import com.antonk404.hhbot.telegram.TelegramReplies;
-import com.antonk404.hhbot.telegram.handler.callback.AccountCallbackHandler;
-import com.antonk404.hhbot.telegram.handler.callback.VacancyCallbackHandler;
 import com.antonk404.hhbot.telegram.state.VacancyCards;
 import org.springframework.stereotype.Component;
+
+import static com.antonk404.hhbot.telegram.view.Kb.btn;
 
 /** Превращает находки сканера в сообщения. */
 @Component
@@ -25,48 +25,38 @@ public class VacancyPresenter implements ScanListener {
     @Override
     public void found(BotUser user, ResponseRule rule, HhVacancy vacancy) {
         vacancyCards.stage(user.getId(), rule.getId(), vacancy);
-        replies.menu(user.getChatId(), new Screen(
-                "🔎 " + rule.getName() + "\n\n" + describe(vacancy),
-                Kb.of()
-                        .row(Kb.btn("✅ Откликнуться", VacancyCallbackHandler.PREFIX + vacancy.id() + ":a"),
-                                Kb.btn("⏭ Пропустить", VacancyCallbackHandler.PREFIX + vacancy.id() + ":s"))
-                        .row(Kb.link("Открыть на hh", vacancy.url()))
-                        .build()));
+        replies.menu(user.getChatId(), VacancyView.card(rule.getName(), vacancy, null));
     }
 
     @Override
     public void applied(BotUser user, ResponseRule rule, HhVacancy vacancy) {
-        replies.text(user.getChatId(), "✅ Откликнулся · " + rule.getName() + "\n\n" + describe(vacancy)
-                + "\n" + vacancy.url());
+        replies.text(user.getChatId(),
+                "✅ <b>Откликнулся</b> · " + Html.esc(rule.getName()) + "\n\n" + VacancyView.text(vacancy));
     }
 
     @Override
     public void manual(BotUser user, ResponseRule rule, HhVacancy vacancy, String reason) {
-        replies.text(user.getChatId(), "✋ Сам не смог: " + reason + " · " + rule.getName() + "\n\n"
-                + describe(vacancy) + "\n" + vacancy.url());
+        replies.text(user.getChatId(), "✋ <b>Откликнись сам</b> · " + Html.esc(rule.getName()) + "\n"
+                + "Я не смог: " + Html.esc(reason) + ".\n\n" + VacancyView.text(vacancy));
     }
 
     @Override
     public void stopped(BotUser user, String reason) {
-        replies.text(user.getChatId(), "⛔ Остановил отклики до завтра: " + reason + ".\n"
-                + "Зайди на hh.ru с браузера и убедись, что аккаунт в порядке.");
+        replies.menu(user.getChatId(), new Screen(
+                "⛔ <b>Остановил отклики до завтра</b>\n\n" + Html.esc(capitalize(reason)) + ". Завтра продолжу сам.\n\n"
+                        + "Зайди на hh.ru с браузера и убедись, что аккаунт в порядке.",
+                Kb.of().row(Kb.link("Открыть hh.ru", "https://hh.ru/applicant/negotiations")).build()));
     }
 
     @Override
     public void sessionExpired(BotUser user) {
         replies.menu(user.getChatId(), new Screen(
-                "🔑 hh больше не узнаёт сессию. Отклики стоят, пока не войдёшь заново.",
-                Kb.of().row(Kb.btn("Войти заново", AccountCallbackHandler.COOKIES)).build()));
+                "🔑 <b>hh разлогинил сессию</b>\n\nОтклики стоят, пока не подключишь аккаунт заново. "
+                        + "Правила и письма на месте.",
+                Kb.of().row(btn("🔑 Подключить заново", Cb.CONNECT)).build()));
     }
 
-    public static String describe(HhVacancy vacancy) {
-        StringBuilder out = new StringBuilder(vacancy.name()).append('\n').append(vacancy.company());
-        if (!vacancy.city().isEmpty()) {
-            out.append(" · ").append(vacancy.city());
-        }
-        if (!vacancy.salary().isEmpty()) {
-            out.append('\n').append(vacancy.salary());
-        }
-        return out.toString();
+    private static String capitalize(String text) {
+        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 }

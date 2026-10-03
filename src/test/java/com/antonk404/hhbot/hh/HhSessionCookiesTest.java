@@ -25,6 +25,18 @@ class HhSessionCookiesTest {
         assertEquals(32, cookies.xsrf().length());
     }
 
+    /** Всё это люди реально копируют из браузера, когда их просят «значение hhtoken». */
+    @Test
+    void acceptsEveryShapeTheBrowserGives() {
+        String expected = "hhtoken=abc!def";
+
+        assertTrue(HhSessionCookies.parse("\"abc!def\"").header().startsWith(expected + ";"));
+        assertTrue(HhSessionCookies.parse("`abc!def`").header().startsWith(expected + ";"));
+        assertTrue(HhSessionCookies.parse("hhtoken: abc!def").header().startsWith(expected + ";"));
+        assertTrue(HhSessionCookies.parse("hhtoken\tabc!def\t.hh.ru\t/\t2027-10-03").header().startsWith(expected + ";"));
+        assertTrue(HhSessionCookies.parse("hhtoken=\"abc!def\"; _xsrf=x1").header().startsWith(expected + ";"));
+    }
+
     @Test
     void headerRoundTripsThroughParse() {
         HhSessionCookies cookies = HhSessionCookies.parse("abc");
@@ -37,6 +49,7 @@ class HhSessionCookiesTest {
         assertThrows(IllegalArgumentException.class, () -> HhSessionCookies.parse("hhuid=u1; _xsrf=x1"));
         assertThrows(IllegalArgumentException.class, () -> HhSessionCookies.parse(""));
         assertThrows(IllegalArgumentException.class, () -> HhSessionCookies.parse("вот мои куки"));
+        assertThrows(IllegalArgumentException.class, () -> HhSessionCookies.parse("привет"));
     }
 
     /** Этот объект попадает в логи и исключения как любой другой. Значений там быть не должно. */

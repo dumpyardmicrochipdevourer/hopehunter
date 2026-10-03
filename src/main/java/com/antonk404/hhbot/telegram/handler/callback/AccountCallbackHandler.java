@@ -3,10 +3,12 @@ package com.antonk404.hhbot.telegram.handler.callback;
 import com.antonk404.hhbot.hh.exceptions.HhException;
 import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
 import com.antonk404.hhbot.service.HhAccountService;
-import com.antonk404.hhbot.telegram.TelegramReplies;
 import com.antonk404.hhbot.telegram.access.Access;
 import com.antonk404.hhbot.telegram.state.DialogState;
-import com.antonk404.hhbot.telegram.view.Screens;
+import com.antonk404.hhbot.telegram.state.MenuMessage;
+import com.antonk404.hhbot.telegram.view.AccountScreens;
+import com.antonk404.hhbot.telegram.view.Cb;
+import com.antonk404.hhbot.telegram.view.MenuScreens;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 
@@ -14,25 +16,23 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 @Component
 public class AccountCallbackHandler implements CallbackHandler {
 
-    public static final String COOKIES = "acc:cookies";
-
     private final Access access;
     private final HhAccountService hhAccountService;
     private final DialogState dialogState;
-    private final Screens screens;
-    private final TelegramReplies replies;
+    private final MenuMessage menu;
+    private final AccountScreens screens;
 
     public AccountCallbackHandler(
             Access access,
             HhAccountService hhAccountService,
             DialogState dialogState,
-            Screens screens,
-            TelegramReplies replies) {
+            MenuMessage menu,
+            AccountScreens screens) {
         this.access = access;
         this.hhAccountService = hhAccountService;
         this.dialogState = dialogState;
+        this.menu = menu;
         this.screens = screens;
-        this.replies = replies;
     }
 
     @Override
@@ -48,33 +48,35 @@ public class AccountCallbackHandler implements CallbackHandler {
     private void handle(Access.Press press) {
         Long userId = press.user().getId();
         dialogState.clear(userId);
-        switch (press.data()) {
-            case COOKIES -> {
-                dialogState.expect(userId, DialogState.Step.ACCOUNT_COOKIES);
-                replies.answerCallback(press.queryId(), null);
-                replies.editMenu(press.chatId(), press.messageId(), screens.cookiesPrompt());
-            }
-            case "acc:logout" -> {
-                hhAccountService.disconnect(userId);
-                replies.answerCallback(press.queryId(), "отключил");
-                replies.editMenu(press.chatId(), press.messageId(), screens.account(press.user()));
-            }
-            case "acc:resumes" -> {
-                try {
-                    var profile = hhAccountService.profile(userId);
-                    replies.answerCallback(press.queryId(), null);
-                    replies.editMenu(press.chatId(), press.messageId(), screens.resumes(profile.resumes()));
-                } catch (HhSessionExpiredException e) {
-                    replies.answerCallback(press.queryId(), "сессия истекла");
-                    replies.editMenu(press.chatId(), press.messageId(), screens.account(press.user()));
-                } catch (HhException e) {
-                    replies.alert(press.queryId(), "hh не ответил, попробуй позже");
-                }
-            }
-            default -> {
-                replies.answerCallback(press.queryId(), null);
-                replies.editMenu(press.chatId(), press.messageId(), screens.account(press.user()));
-            }
+        String data = press.data();
+
+        if (data.equals(Cb.CONNECT)) {
+            // Ждём куку уже с первого экрана: кто-то пришлёт её, не дочитав до выбора браузера.
+            dialogState.expect(userId, DialogState.Step.ACCOUNT_COOKIES);
+            menu.edit(press, screens.connectIntro());
+        } else if (data.startsWith(Cb.CONNECT_HOW)) {
+            String browser = data.substring(Cb.CONNECT_HOW.length());
+            dialogState.expect(userId, DialogState.Step.ACCOUNT_COOKIES);
+            menu.edit(press, screens.connectSteps(AccountScreens.isBrowser(browser) ? browser : "chrome"));
+        } else if (data.equals(Cb.LOGOUT)) {
+            hhAccountService.disconnect(userId);
+            menu.edit(press, screens.account(press.user()), "Отключил");
+        } else if (data.equals(Cb.RESUMES)) {
+            resumes(press);
+        } else {
+            menu.edit(press, screens.account(press.user()));
+        }
+    }
+
+    private void resumes(Access.Press press) {
+        menu.progress(press, "Спрашиваю у hh твои резюме…");
+        try {
+            menu.finish(press, screens.resumes(hhAccountService.profile(press.user().getId()).resumes()));
+        } catch (HhSessionExpiredException e) {
+            menu.finish(press, screens.account(press.user()));
+        } catch (HhException e) {
+            menu.finish(press, MenuScreens.problem("hh сейчас не отвечает.", "🔄 Попробовать ещё раз",
+                    Cb.RESUMES, Cb.ACCOUNT));
         }
     }
 }

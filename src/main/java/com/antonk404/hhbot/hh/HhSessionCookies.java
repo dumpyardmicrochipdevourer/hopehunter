@@ -5,6 +5,8 @@ import java.util.Collections;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -23,14 +25,21 @@ public final class HhSessionCookies {
         this.cookies = Collections.unmodifiableMap(cookies);
     }
 
+    /** {@code hhtoken}, за ним любые разделители, за ними значение - так выглядит строка, скопированная из таблицы кук. */
+    private static final Pattern LABELLED_TOKEN = Pattern.compile("hhtoken[\"'`\\s:=]+([^\\s;\"'`]+)");
+
     /**
-     * Разбирает то, что человек вставил в чат: либо строку заголовка Cookie целиком
-     * ({@code name=value; name2=value2}), либо одно значение {@code hhtoken}.
+     * Разбирает то, что человек вставил в чат. Принимает всё, что реально копируется из браузера:
+     * одно значение {@code hhtoken}, строку заголовка Cookie целиком, строку из таблицы кук
+     * (имя, табуляция, значение, домен…), с кавычками и без.
+     *
+     * <p>Строгость тут ничего не даёт: значение всё равно сразу проверяется на живом hh. А каждое
+     * «не тот формат» - это человек, который полез в инструменты разработчика ещё раз.
      *
      * <p>Если {@code _xsrf} не пришёл, он генерируется. hh сверяет куку с тем же значением в
      * запросе, а не с чем-то на сервере, так что паре достаточно совпадать между собой.
      *
-     * @throws IllegalArgumentException если в тексте нет {@code hhtoken}
+     * @throws IllegalArgumentException если значение {@code hhtoken} найти не удалось
      */
     public static HhSessionCookies parse(String pasted) {
         String text = pasted == null ? "" : pasted.strip();
@@ -38,16 +47,23 @@ public final class HhSessionCookies {
             text = text.substring(7).strip();
         }
         Map<String, String> cookies = new LinkedHashMap<>();
-        if (!text.isEmpty() && !text.contains("=") && !text.contains(" ")) {
-            cookies.put(TOKEN, text);
-        } else {
+        if (text.contains(TOKEN + "=")) {
             for (String part : text.split(";")) {
                 int eq = part.indexOf('=');
                 if (eq <= 0) {
                     continue;
                 }
                 // Делим по первому '=': значения бывают в base64 и заканчиваются на '='.
-                cookies.put(part.substring(0, eq).strip(), part.substring(eq + 1).strip());
+                cookies.put(part.substring(0, eq).strip(), unquote(part.substring(eq + 1)));
+            }
+        } else {
+            Matcher labelled = LABELLED_TOKEN.matcher(text);
+            String bare = unquote(text);
+            if (labelled.find()) {
+                cookies.put(TOKEN, labelled.group(1));
+            } else if (!bare.isEmpty() && bare.matches("[\\x21-\\x7e]+") && !bare.contains("=")) {
+                // Одно слово из печатных ASCII-символов - это само значение. «привет» сюда не пройдёт.
+                cookies.put(TOKEN, bare);
             }
         }
         String token = cookies.get(TOKEN);
@@ -56,6 +72,10 @@ public final class HhSessionCookies {
         }
         cookies.computeIfAbsent(XSRF, key -> randomXsrf());
         return new HhSessionCookies(cookies);
+    }
+
+    private static String unquote(String value) {
+        return value.strip().replaceAll("^[\"'`]+|[\"'`]+$", "");
     }
 
     private static String randomXsrf() {
