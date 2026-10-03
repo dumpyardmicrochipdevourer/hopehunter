@@ -2,7 +2,7 @@ package com.antonk404.hhbot.service;
 
 import com.antonk404.hhbot.domain.BotUser;
 import com.antonk404.hhbot.domain.ResponseRule;
-import com.antonk404.hhbot.hh.HhVacancy;
+import com.antonk404.hhbot.domain.dto.HhVacancy;
 
 /**
  * Куда сканер сообщает о находках. Интерфейс здесь, реализация в telegram: сервисам незачем
