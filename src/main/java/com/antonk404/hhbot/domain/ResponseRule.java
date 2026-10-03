@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.util.Set;
 
 /**
  * Правило отклика: что искать, что отсеять, каким резюме и с каким письмом откликаться.
@@ -23,6 +24,11 @@ import java.time.Instant;
 public class ResponseRule {
 
     public static final int DEFAULT_DAILY_LIMIT = 30;
+    public static final int MAX_DAILY_LIMIT = 100;
+
+    /** Коды опыта, которые понимает поиск hh. */
+    public static final Set<String> EXPERIENCE_CODES =
+            Set.of("noExperience", "between1And3", "between3And6", "moreThan6");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

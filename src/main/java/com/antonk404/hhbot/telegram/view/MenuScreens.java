@@ -36,13 +36,16 @@ public class MenuScreens {
     private final ApplicationLogRepository applicationLogRepository;
     private final RateLimiter rateLimiter;
     private final ZoneId zone;
+    private final String webAppUrl;
 
     public MenuScreens(
             HhAccountService hhAccountService,
             ResponseRuleRepository responseRuleRepository,
             ApplicationLogRepository applicationLogRepository,
             RateLimiter rateLimiter,
-            @Value("${bot.timezone}") String timezone) {
+            @Value("${bot.timezone}") String timezone,
+            @Value("${bot.webapp-url:}") String webAppUrl) {
+        this.webAppUrl = webAppUrl == null ? "" : webAppUrl.strip();
         this.hhAccountService = hhAccountService;
         this.responseRuleRepository = responseRuleRepository;
         this.applicationLogRepository = applicationLogRepository;
@@ -73,7 +76,7 @@ public class MenuScreens {
             text.append("\n⚠️ Сессия hh истекла - нужно войти заново.");
         }
 
-        Kb keyboard = Kb.of();
+        Kb keyboard = appButton(Kb.of());
         if (!connected) {
             keyboard.row(btn("🔑 Подключить hh", Cb.CONNECT));
         } else if (rules.isEmpty()) {
@@ -105,7 +108,12 @@ public class MenuScreens {
         text.append("Аккаунт: ").append(name == null || name.isBlank() ? "подключён" : Html.esc(name)).append('\n');
         text.append("Правила: ").append(enabled).append(" из ").append(rules).append(" включено\n");
         text.append("Откликов сегодня: <b>").append(sentToday(user)).append("</b>");
-        return new Screen(text.toString(), sections(Kb.of(), user).build());
+        return new Screen(text.toString(), sections(appButton(Kb.of()), user).build());
+    }
+
+    /** Первой строкой, когда приложение настроено: в нём всё то же самое, но формами, а не перепиской. */
+    private Kb appButton(Kb keyboard) {
+        return webAppUrl.isEmpty() ? keyboard : keyboard.row(Kb.webApp("📱 Открыть приложение", webAppUrl));
     }
 
     private static Kb sections(Kb keyboard, BotUser user) {

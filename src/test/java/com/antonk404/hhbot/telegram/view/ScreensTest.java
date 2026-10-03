@@ -44,7 +44,7 @@ class ScreensTest {
     private final ApplicationLogRepository logs = mock(ApplicationLogRepository.class);
     private final RateLimiter limiter = mock(RateLimiter.class);
 
-    private final MenuScreens menuScreens = new MenuScreens(account, rules, logs, limiter, "Europe/Moscow");
+    private final MenuScreens menuScreens = new MenuScreens(account, rules, logs, limiter, "Europe/Moscow", "");
     private final AccountScreens accountScreens = new AccountScreens(account);
     private final RuleScreens ruleScreens = new RuleScreens(rules, templates, limiter);
     private final LetterScreens letterScreens = new LetterScreens(templates);
@@ -151,6 +151,16 @@ class ScreensTest {
         assertTrue(home.text().contains("🟢 Работаю"));
         assertFalse(home.text().contains("три шага"));
         assertEquals(3, home.keyboard().getKeyboard().size());
+    }
+
+    @Test
+    void appButtonComesFirstWhenTheAppIsConfigured() {
+        when(account.session(1L)).thenReturn(Optional.empty());
+        MenuScreens withApp = new MenuScreens(account, rules, logs, limiter, "Europe/Moscow", "https://hh.example/app");
+
+        var first = withApp.home(user).keyboard().getKeyboard().getFirst().getFirst();
+
+        assertEquals("https://hh.example/app", first.getWebApp().getUrl());
     }
 
     @Test
