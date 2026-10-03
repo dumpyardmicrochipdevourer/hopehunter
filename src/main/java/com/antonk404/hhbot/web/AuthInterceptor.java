@@ -2,6 +2,7 @@ package com.antonk404.hhbot.web;
 
 import com.antonk404.hhbot.domain.BotUser;
 import com.antonk404.hhbot.service.WhitelistService;
+import com.antonk404.hhbot.telegram.access.BotContact;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Component;
@@ -27,8 +28,11 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private final InitDataValidator initDataValidator;
     private final WhitelistService whitelistService;
+    private final BotContact botContact;
 
-    public AuthInterceptor(InitDataValidator initDataValidator, WhitelistService whitelistService) {
+    public AuthInterceptor(
+            InitDataValidator initDataValidator, WhitelistService whitelistService, BotContact botContact) {
+        this.botContact = botContact;
         this.initDataValidator = initDataValidator;
         this.whitelistService = whitelistService;
     }
@@ -46,8 +50,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         Optional<BotUser> user = whitelistService.resolve(telegramUser.get().id(), telegramUser.get().username());
         if (user.isEmpty()) {
-            return reject(response, HttpServletResponse.SC_FORBIDDEN, "forbidden",
-                    "Этот бот работает по приглашениям.");
+            return reject(response, HttpServletResponse.SC_FORBIDDEN, "forbidden", botContact.denied());
         }
         request.setAttribute(USER, user.get());
         return true;
