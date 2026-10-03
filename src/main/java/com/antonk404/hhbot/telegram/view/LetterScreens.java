@@ -29,9 +29,8 @@ public class LetterScreens {
         List<LetterTemplate> templates = letterTemplateRepository.findByUserIdOrderByIdAsc(user.getId());
         templates.forEach(template -> keyboard.row(btn("✉️ " + template.getName(), Cb.letter(template.getId(), "show"))));
         String text = "<b>Письма</b>\n\n" + (templates.isEmpty()
-                ? "Пока ни одного. Письмо - шаблон сопроводительного: пишешь один раз, а название вакансии "
-                + "и компании я подставляю сам."
-                : "Шаблоны сопроводительных писем. Какое прикладывать - выбирается в правиле.");
+                ? "Пока ни одного."
+                : "");
         return new Screen(text, keyboard
                 .row(btn("➕ Новое письмо", Cb.LETTER_NEW))
                 .row(btn("🏠 Меню", Cb.HOME))
@@ -58,15 +57,11 @@ public class LetterScreens {
     /** Подсказка по алиасам. Моноширинные - чтобы вставлялись в текст тапом, без опечаток. */
     public static String aliasHelp() {
         return """
-                Что я подставлю сам:
                 <code>[company_name]</code> - компания
-                <code>[vacancy_name]</code> - название вакансии
-                <code>[salary]</code> - зарплата из вакансии, если указана
+                <code>[vacancy_name]</code> - вакансия
+                <code>[salary]</code> - зарплата
                 <code>[city]</code> - город
-                <code>[my_name]</code> - твоё имя из hh
-
-                Например:
-                <i>Здравствуйте! Меня заинтересовала вакансия [vacancy_name] в [company_name]…</i>""";
+                <code>[my_name]</code> - имя из hh""";
     }
 
     /** Имена алиасов через запятую - для сообщения об опечатке в шаблоне. */

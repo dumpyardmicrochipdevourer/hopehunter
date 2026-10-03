@@ -29,12 +29,7 @@ import java.util.Optional;
 @Component
 public class LetterCallbackHandler implements CallbackHandler {
 
-    public static final String NEW_LETTER_PROMPT = """
-            <b>Новое письмо · шаг 1 из 2</b>
-
-            Как его назвать? Название видишь только ты.
-
-            Например: <code>Основное</code>""";
+    public static final String NEW_LETTER_PROMPT = "<b>Новое письмо · шаг 1 из 2</b>\n\nНазвание:";
 
     /** На чём показать предпросмотр, если настоящую вакансию достать не вышло. */
     private static final HhVacancy SAMPLE = new HhVacancy(
@@ -120,8 +115,7 @@ public class LetterCallbackHandler implements CallbackHandler {
                 menu.finish(press, screens.preview(template, sampleVacancy(user), ownerName));
             }
             case "del" -> menu.edit(press, new Screen(
-                    "Удалить письмо «" + Html.esc(template.getName()) + "»?\n\nПравила, где оно выбрано, "
-                            + "продолжат работать - просто без письма.",
+                    "Удалить письмо «" + Html.esc(template.getName()) + "»?",
                     Kb.of().row(Kb.btn("🗑 Да, удалить", Cb.letter(id, "delok")), Kb.btn("Нет", Cb.letter(id, "show")))
                             .build()));
             case "delok" -> {

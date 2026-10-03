@@ -148,14 +148,8 @@ public class DialogHandler {
         }
         ResponseRule rule = responseRuleRepository.save(new ResponseRule(user.getId(), text));
         dialogState.expect(user.getId(), Step.RULE_WIZARD_KEYWORDS, rule.getId());
-        return MenuScreens.prompt("""
-                <b>Новое правило · шаг 2 из 4</b>
-
-                Что искать? Напиши так, как искал бы на hh.
-
-                Например: <code>java разработчик</code>
-
-                Искать буду в названиях вакансий. Регион, зарплату и остальное можно добавить потом.""",
+        return MenuScreens.prompt("<b>Новое правило · шаг 2 из 4</b>\n\nКлючевые слова в названии вакансии:\n"
+                        + "например: <code>devops OR sre</code>",
                 Cb.rule(rule.getId(), "show"));
     }
 
@@ -191,8 +185,7 @@ public class DialogHandler {
             return MenuScreens.retry(tooLong(text, MAX_NAME), Cb.LETTERS);
         }
         dialogState.expect(user.getId(), Step.LETTER_NEW_BODY, text);
-        return MenuScreens.prompt("<b>Новое письмо · шаг 2 из 2</b>\n\nТеперь пришли текст письма «"
-                + Html.esc(text) + "».\n\n" + LetterScreens.aliasHelp(), Cb.LETTERS);
+        return MenuScreens.prompt("<b>Новое письмо · шаг 2 из 2</b>\n\nТекст письма:\n\n" + LetterScreens.aliasHelp(), Cb.LETTERS);
     }
 
     private Screen newLetterBody(BotUser user, Dialog dialog, String text) {

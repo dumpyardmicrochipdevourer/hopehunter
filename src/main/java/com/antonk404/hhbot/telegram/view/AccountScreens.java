@@ -39,11 +39,10 @@ public class AccountScreens {
         Kb keyboard = Kb.of();
         String text;
         if (session.isEmpty()) {
-            text = "<b>Аккаунт hh</b>\n\nНе подключён. Без него мне нечем искать и откликаться.";
+            text = "<b>Аккаунт hh</b>\n\nНе подключён.";
             keyboard.row(btn("🔑 Подключить", Cb.CONNECT));
         } else if (session.get().getState() == SessionState.EXPIRED) {
-            text = "<b>Аккаунт hh</b>\n\n⚠️ Сессия истекла: hh разлогинил её сам или ты вышел на сайте. "
-                    + "Отклики стоят, пока не войдёшь заново.";
+            text = "<b>Аккаунт hh</b>\n\n⚠️ Сессия истекла.";
             keyboard.row(btn("🔑 Войти заново", Cb.CONNECT)).row(btn("Отключить аккаунт", Cb.LOGOUT));
         } else {
             String name = session.get().getOwnerName();
@@ -61,15 +60,7 @@ public class AccountScreens {
     public Screen connectIntro() {
         Kb keyboard = Kb.of();
         BROWSERS.forEach((code, label) -> keyboard.row(btn(label, Cb.CONNECT_HOW + code)));
-        return new Screen("""
-                <b>Подключение hh</b>
-
-                Займёт пару минут, нужен компьютер с браузером, где ты уже вошёл на hh.ru.
-
-                Пароль я не спрашиваю. Вместо него нужна одна строчка из браузера - по ней hh узнаёт, \
-                что это ты. Покажу, где её взять.
-
-                В каком браузере у тебя открыт hh?""",
+        return new Screen("<b>Подключение hh</b>\n\nБраузер, где открыт hh.ru:",
                 keyboard.row(btn("Отмена", Cb.ACCOUNT)).build());
     }
 
@@ -99,14 +90,7 @@ public class AccountScreens {
                     Value и скопируй.""";
         };
         return new Screen("<b>Подключение hh · " + Html.esc(BROWSERS.getOrDefault(browser, BROWSERS.get("chrome")))
-                + "</b>\n\n" + steps + """
-
-
-                <b>Пришли скопированное сюда сообщением.</b> Формат не важен: можно значение, можно \
-                всю строку из таблицы.
-
-                🔒 Это ключ от твоего аккаунта. Твоё сообщение я сразу удалю из чата, а у себя храню \
-                его зашифрованным.""",
+                + "</b>\n\n" + steps + "\n\nПришли значение сюда. Сообщение с ним удалю.",
                 Kb.of().row(btn("Другой браузер", Cb.CONNECT), btn("Отмена", Cb.ACCOUNT)).build());
     }
 
@@ -124,7 +108,7 @@ public class AccountScreens {
         }
         Kb keyboard = Kb.of();
         if (!hasRules) {
-            text.append("\n\nТеперь правило: что искать и чем откликаться.");
+
             keyboard.row(btn("➕ Создать первое правило", Cb.RULE_NEW));
         }
         return new Screen(text.toString(), keyboard.row(btn("🏠 Меню", Cb.HOME)).build());
