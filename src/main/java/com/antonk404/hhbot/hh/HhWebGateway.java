@@ -58,7 +58,7 @@ public class HhWebGateway implements HhGateway {
 
     @Override
     public HhProfile profile(HhSessionCookies cookies) {
-        HhHttp.Response response = getPage(baseUrl + "/applicant/resumes", headers(cookies));
+        HhHttp.Response response = getPage(baseUrl + "/applicant/my_resumes", headers(cookies));
         JsonNode state = InitialState.parse(pageOrThrow(response, true));
 
         List<HhResume> resumes = new ArrayList<>();
