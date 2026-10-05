@@ -184,7 +184,7 @@ class HhWebGatewayTest {
         HhProfile profile = gateway(http).profile(COOKIES);
 
         assertEquals("А", profile.ownerName());
-        assertEquals(List.of("https://hh.ru/applicant/resumes", "https://hh.ru/applicant/my_resumes?from=old"), http.urls);
+        assertEquals(List.of("https://hh.ru/applicant/my_resumes", "https://hh.ru/applicant/my_resumes?from=old"), http.urls);;
     }
 
     @Test
