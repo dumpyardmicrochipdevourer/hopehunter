@@ -98,6 +98,11 @@ public class WhitelistService {
         botUserRepository.save(user);
     }
 
+    public void setNotifyApplied(BotUser user, boolean notifyApplied) {
+        user.setNotifyApplied(notifyApplied);
+        botUserRepository.save(user);
+    }
+
     public static String normalize(String username) {
         String trimmed = username.trim();
         if (trimmed.startsWith("@")) {
