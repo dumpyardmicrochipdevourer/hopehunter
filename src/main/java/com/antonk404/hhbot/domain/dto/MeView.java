@@ -5,6 +5,7 @@ package com.antonk404.hhbot.domain.dto;
  *
  * @param dailyLimit сколько откликов в день разрешают включённые правила в сумме
  * @param stopped отклики остановлены до завтра (капча или суточный лимит hh)
+ * @param notifyApplied слать ли сообщение после каждого автоотклика
  */
 public record MeView(
         String username,
@@ -14,5 +15,6 @@ public record MeView(
         int rulesTotal,
         int rulesEnabled,
         long sentToday,
-        int dailyLimit) {
+        int dailyLimit,
+        boolean notifyApplied) {
 }

@@ -30,6 +30,9 @@ public class VacancyPresenter implements ScanListener {
 
     @Override
     public void applied(BotUser user, ResponseRule rule, HhVacancy vacancy) {
+        if (!user.isNotifyApplied()) {
+            return;
+        }
         replies.text(user.getChatId(),
                 "✅ <b>Откликнулся</b> · " + Html.esc(rule.getName()) + "\n\n" + VacancyView.text(vacancy));
     }

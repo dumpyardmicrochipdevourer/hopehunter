@@ -312,8 +312,16 @@
         <div class="kv${dim}"><span>отклики сегодня</span><span>${me.sentToday}${me.dailyLimit ? ` из ${me.dailyLimit}` : ''}</span></div>
         <div class="progress-pad"><div class="progress"><i style="width:${percent}%"></i></div></div>
       </div>
+      <div class="toggle-row"><span>уведомлять об откликах</span>${switchBtn(me.notifyApplied, 'Уведомлять об откликах', 'notify')}</div>
       ${statsData.recent.length ? `<div class="section-head"><span>последние отклики</span><a href="#/stats">все</a></div><div class="block">${logRows(statsData.recent.slice(0, 5))}</div>` : ''}
     </div></div>`, { nav: 'home' });
+
+    actions.notify = async (el) => {
+      const applied = el.getAttribute('aria-checked') !== 'true';
+      el.setAttribute('aria-checked', String(applied));
+      haptic();
+      try { await api('PUT', '/me/notifications', { applied }); } catch (e) { toast(e.message, true); el.setAttribute('aria-checked', String(!applied)); }
+    };
 
     actions.pause = async (el) => {
       const paused = el.getAttribute('aria-checked') === 'true';
