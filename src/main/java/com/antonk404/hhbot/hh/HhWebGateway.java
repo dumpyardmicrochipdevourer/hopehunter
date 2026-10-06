@@ -248,6 +248,9 @@ public class HhWebGateway implements HhGateway {
         }
         String body = response.body() == null ? "" : response.body();
         String lower = body.toLowerCase(Locale.ROOT);
+        // Тело каждого ответа на отклик - в лог: разбор ниже написан без живого hh, и сверять его
+        // с реальностью можно только по настоящим ответам.
+        logger.info("apply to vacancy {}: status {} body {}", vacancyId, response.status(), clip(body));
         if (lower.contains("captcha")) {
             return new ApplyResult.Captcha();
         }
@@ -257,11 +260,14 @@ public class HhWebGateway implements HhGateway {
         if (lower.contains("test-required") || lower.contains("test_required")) {
             return new ApplyResult.NeedsTest();
         }
+        boolean hasError = lower.contains("\"error\"");
+        // Успех проверяем раньше «already»: слово встречается и в теле удачного ответа, и принять
+        // из-за него настоящий отклик за дубль значит остаться без паузы и без счётчика.
+        if (response.status() >= 200 && response.status() < 300 && !hasError) {
+            return new ApplyResult.Sent();
+        }
         if (lower.contains("already")) {
             return new ApplyResult.AlreadyApplied();
-        }
-        if (response.status() == 200 && !lower.contains("\"error\"")) {
-            return new ApplyResult.Sent();
         }
         if (response.status() == 403) {
             // 403 без узнаваемой причины hh отдаёт и мёртвой сессии, и антиботу. Считаем худшим.
@@ -329,6 +335,6 @@ public class HhWebGateway implements HhGateway {
     }
 
     private static String clip(String body) {
-        return body.length() <= 300 ? body : body.substring(0, 300) + "…";
+        return body.length() <= 600 ? body : body.substring(0, 600) + "…";
     }
 }
