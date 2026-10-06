@@ -147,7 +147,8 @@ public class VacancyScanner {
 
     /** Счётчики одного прохода по правилу - общие на все его страницы. */
     private static final class Progress {
-        private int applied;
+        /** Попытки отклика, дошедшие до hh, что бы hh ни ответил: пауза и потолок считаются по ним. */
+        private int attempts;
         private int cards;
     }
 
@@ -177,17 +178,17 @@ public class VacancyScanner {
 
             // Не помечаем просмотренной: вакансия, на которую сегодня не хватило лимита, должна
             // дождаться следующего прохода, а не пропасть.
-            if (rateLimiter.exhausted(rule) || progress.applied >= maxAppliesPerScan) {
+            if (rateLimiter.exhausted(rule) || progress.attempts >= maxAppliesPerScan) {
                 return false;
             }
-            if (progress.applied > 0) {
+            if (progress.attempts > 0) {
                 pauser.pause();
             }
             ApplyResult result = applyService.apply(user, rule, vacancy);
+            progress.attempts++;
             store.addToSet(seenKey, vacancy.id(), SEEN_TTL);
             switch (result) {
                 case ApplyResult.Sent sent -> {
-                    progress.applied++;
                     listener.applied(user, rule, vacancy);
                 }
                 case ApplyResult.NeedsTest test -> listener.manual(user, rule, vacancy, "нужно пройти тест");
