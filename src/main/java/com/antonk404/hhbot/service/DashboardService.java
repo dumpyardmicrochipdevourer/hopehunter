@@ -48,7 +48,7 @@ public class DashboardService {
         int enabled = (int) rules.stream().filter(ResponseRule::isEnabled).count();
         int dailyLimit = rules.stream().filter(ResponseRule::isEnabled).mapToInt(ResponseRule::getDailyLimit).sum();
         return new MeView(user.getUsername(), user.isPaused(), rateLimiter.isStopped(user.getId()),
-                account(user), rules.size(), enabled, sentToday(user), dailyLimit);
+                account(user), rules.size(), enabled, sentToday(user), dailyLimit, user.isNotifyApplied());
     }
 
     public AccountView account(BotUser user) {

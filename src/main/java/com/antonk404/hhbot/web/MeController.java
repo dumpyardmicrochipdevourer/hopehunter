@@ -19,6 +19,9 @@ public class MeController {
     public record PauseRequest(boolean paused) {
     }
 
+    public record NotificationsRequest(boolean applied) {
+    }
+
     private final DashboardService dashboardService;
     private final WhitelistService whitelistService;
 
@@ -35,6 +38,13 @@ public class MeController {
     @PutMapping("/me/pause")
     public MeView pause(@RequestAttribute(AuthInterceptor.USER) BotUser user, @RequestBody PauseRequest request) {
         whitelistService.setPaused(user, request.paused());
+        return dashboardService.me(user);
+    }
+
+    @PutMapping("/me/notifications")
+    public MeView notifications(@RequestAttribute(AuthInterceptor.USER) BotUser user,
+                                @RequestBody NotificationsRequest request) {
+        whitelistService.setNotifyApplied(user, request.applied());
         return dashboardService.me(user);
     }
 

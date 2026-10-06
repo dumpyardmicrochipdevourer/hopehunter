@@ -40,6 +40,12 @@ public class BotUser {
     @Column(nullable = false)
     private boolean paused = false;
 
+    /**
+     * Присылать ли сообщение «Откликнулся» после каждого автоотклика
+     */
+    @Column(name = "notify_applied", nullable = false, columnDefinition = "boolean not null default true")
+    private boolean notifyApplied = true;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -89,5 +95,13 @@ public class BotUser {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public boolean isNotifyApplied() {
+        return notifyApplied;
+    }
+
+    public void setNotifyApplied(boolean notifyApplied) {
+        this.notifyApplied = notifyApplied;
     }
 }
