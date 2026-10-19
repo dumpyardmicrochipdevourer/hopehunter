@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.antonk404.hhbot.telegram.view.Kb.btn;
 import static com.antonk404.hhbot.telegram.view.Kb.field;
@@ -120,8 +121,8 @@ public class RuleScreens {
         if (rule.getSalaryFrom() != null) {
             out.append(" · от ").append(money(rule.getSalaryFrom())).append(" ₽");
         }
-        if (rule.getExperience() != null) {
-            out.append(" · опыт ").append(EXPERIENCE.get(rule.getExperience()));
+        if (!rule.getExperiences().isEmpty()) {
+            out.append(" · опыт ").append(experienceNames(rule));
         }
         if (rule.isRemoteOnly()) {
             out.append(" · удалёнка");
@@ -150,7 +151,7 @@ public class RuleScreens {
                         field("Удалёнка", rule.isRemoteOnly() ? "да" : "не важно", Cb.rule(id, "remote")))
                 .row(field("Зарплата", rule.getSalaryFrom() == null ? "любая" : "от " + money(rule.getSalaryFrom()),
                         Cb.rule(id, "sal")))
-                .row(field("Опыт", rule.getExperience() == null ? "любой" : EXPERIENCE.get(rule.getExperience()),
+                .row(field("Опыт", rule.getExperiences().isEmpty() ? "любой" : experienceNames(rule),
                         Cb.rule(id, "exp")))
                 .row(btn("➖ Минус-слова", Cb.rule(id, "minus")), btn("🚫 Стоп-лист", Cb.rule(id, "bl")))
                 .row(back(id))
@@ -194,10 +195,13 @@ public class RuleScreens {
                 .build());
     }
 
+    /** Переключатели, а не выбор одного: «1–3» и «3–6» в одном правиле - обычное дело. */
     public Screen experience(ResponseRule rule) {
         Long id = rule.getId();
+        List<String> chosen = rule.getExperiences();
         Kb keyboard = Kb.of();
-        EXPERIENCE.forEach((code, name) -> keyboard.row(btn(name, Cb.rule(id, "exp:" + code))));
+        EXPERIENCE.forEach((code, name) ->
+                keyboard.row(btn((chosen.contains(code) ? "✅ " : "⬜️ ") + name, Cb.rule(id, "exp:" + code))));
         return new Screen("<b>Опыт в вакансии</b>", keyboard
                 .row(btn("Не важно", Cb.rule(id, "exp:any")))
                 .row(btn("« Назад", Cb.rule(id, SEARCH)))
@@ -304,6 +308,10 @@ public class RuleScreens {
                 .row(btn("🔎 Изменить поиск", Cb.rule(rule.getId(), SEARCH)))
                 .row(back(rule.getId()))
                 .build());
+    }
+
+    private static String experienceNames(ResponseRule rule) {
+        return rule.getExperiences().stream().map(EXPERIENCE::get).collect(Collectors.joining(", "));
     }
 
     private static InlineKeyboardButton back(Long id) {

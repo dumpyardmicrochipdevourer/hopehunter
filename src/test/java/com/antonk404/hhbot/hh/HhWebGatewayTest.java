@@ -98,17 +98,26 @@ class HhWebGatewayTest {
         assertEquals("text=java+developer&search_field=name&area=1&salary=200000&only_with_salary=true"
                         + "&experience=between1And3&work_format=REMOTE&order_by=publication_time&page=2",
                 HhWebGateway.searchParams(new SearchQuery("java developer", true, null, 1, 200000, true,
-                        "between1And3", List.of("REMOTE"), List.of(), List.of(), null), 2));
+                        List.of("between1And3"), List.of("REMOTE"), List.of(), List.of(), null), 2));
         assertEquals("text=java&order_by=publication_time&page=0",
-                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, null, true, null,
+                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, null, true, List.of(),
                         List.of(), List.of(), List.of(), null), 0));
+    }
+
+    /** Несколько диапазонов опыта - повторяющийся параметр, как у формата работы. */
+    @Test
+    void experienceRangesRepeatTheParameter() {
+        assertEquals("text=java&experience=between1And3&experience=between3And6"
+                        + "&order_by=publication_time&page=0",
+                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, null, true,
+                        List.of("between1And3", "between3And6"), List.of(), List.of(), List.of(), null), 0));
     }
 
     /** Порог без «только с зарплатой»: hh покажет и вакансии, где зарплата не указана. */
     @Test
     void salaryThresholdCanKeepVacanciesWithoutSalary() {
         assertEquals("text=java&salary=200000&order_by=publication_time&page=0",
-                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, 200000, false, null,
+                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, 200000, false, List.of(),
                         List.of(), List.of(), List.of(), null), 0));
     }
 
@@ -121,17 +130,17 @@ class HhWebGatewayTest {
         assertEquals("text=NAME%3A%28devops+OR+sre%29+AND+DESCRIPTION%3A%28kubernetes+OR+k8s%29"
                         + "&order_by=publication_time&page=0",
                 HhWebGateway.searchParams(new SearchQuery("devops OR sre", true, "kubernetes OR k8s", null, null,
-                        true, null, List.of(), List.of(), List.of(), null), 0));
+                        true, List.of(), List.of(), List.of(), List.of(), null), 0));
         assertEquals("text=%28devops%29+AND+DESCRIPTION%3A%28k8s%29&order_by=publication_time&page=0",
                 HhWebGateway.searchParams(new SearchQuery("devops", false, "k8s", null, null,
-                        true, null, List.of(), List.of(), List.of(), null), 0));
+                        true, List.of(), List.of(), List.of(), List.of(), null), 0));
     }
 
     @Test
     void multiValueFiltersRepeatTheParameter() {
         assertEquals("text=devops&search_field=name&work_format=REMOTE&work_format=HYBRID&employment_form=FULL"
                         + "&label=not_from_agency&label=accredited_it&search_period=7&order_by=publication_time&page=0",
-                HhWebGateway.searchParams(new SearchQuery("devops", true, " ", null, null, true, null,
+                HhWebGateway.searchParams(new SearchQuery("devops", true, " ", null, null, true, List.of(),
                         List.of("REMOTE", "HYBRID"), List.of("FULL"), List.of("not_from_agency", "accredited_it"), 7), 0));
     }
 

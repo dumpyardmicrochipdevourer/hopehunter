@@ -13,7 +13,6 @@ import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Правило отклика: что искать, что отсеять, каким резюме и с каким письмом откликаться.
@@ -45,9 +44,9 @@ public class ResponseRule {
     /** За сколько дней брать вакансии. */
     public static final List<Integer> PERIODS_DAYS = List.of(1, 3, 7, 30);
 
-    /** Коды опыта, которые понимает поиск hh. */
-    public static final Set<String> EXPERIENCE_CODES =
-            Set.of("noExperience", "between1And3", "between3And6", "moreThan6");
+    /** Коды опыта, которые понимает поиск hh, в порядке самого hh. */
+    public static final List<String> EXPERIENCE_CODES =
+            List.of("noExperience", "between1And3", "between3And6", "moreThan6");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -100,9 +99,16 @@ public class ResponseRule {
     @Column(name = "only_with_salary", nullable = false)
     private boolean onlyWithSalary = true;
 
-    /** Код опыта hh: noExperience, between1And3, between3And6, moreThan6; null - любой. */
+    /**
+     * Осталась от времён, когда опыт был одним кодом: в varchar(16) несколько кодов не влезут.
+     * Читается, пока правило не пересохранили; смысл теперь несёт {@link #experienceCodes}.
+     */
     @Column(length = 16)
     private String experience;
+
+    /** Коды из {@link #EXPERIENCE_CODES} через запятую; пусто - любой опыт. */
+    @Column(name = "experience_codes", length = 64)
+    private String experienceCodes;
 
     /**
      * Осталась от времён, когда формат работы был одним флажком. Колонка NOT NULL, поэтому поле
@@ -266,12 +272,18 @@ public class ResponseRule {
         this.salaryFrom = salaryFrom;
     }
 
-    public String getExperience() {
-        return experience;
+    /** Правила, созданные до появления нескольких диапазонов, читаются по старой колонке. */
+    public List<String> getExperiences() {
+        if (experienceCodes == null && experience != null) {
+            return List.of(experience);
+        }
+        return split(experienceCodes);
     }
 
-    public void setExperience(String experience) {
-        this.experience = experience;
+    public void setExperiences(List<String> codes) {
+        this.experienceCodes = String.join(",", codes);
+        // Старая колонка остаётся осмысленной, пока выбран ровно один диапазон.
+        this.experience = codes.size() == 1 ? codes.getFirst() : null;
     }
 
     public String getSkills() {

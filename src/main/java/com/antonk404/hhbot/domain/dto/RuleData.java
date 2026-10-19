@@ -26,7 +26,7 @@ public record RuleData(
         String areaName,
         Integer salaryFrom,
         Boolean onlyWithSalary,
-        String experience,
+        List<String> experiences,
         List<String> workFormats,
         List<String> employmentForms,
         List<String> labels,
