@@ -232,7 +232,7 @@ public class VacancyScanner {
 
     static SearchQuery query(ResponseRule rule) {
         return new SearchQuery(rule.getKeywords(), rule.isTitleOnly(), rule.getSkills(), rule.getAreaId(),
-                rule.getSalaryFrom(), rule.isOnlyWithSalary(), rule.getExperience(), rule.getWorkFormats(),
+                rule.getSalaryFrom(), rule.isOnlyWithSalary(), rule.getExperiences(), rule.getWorkFormats(),
                 rule.getEmploymentForms(), rule.getLabels(), rule.getPeriodDays());
     }
 }
