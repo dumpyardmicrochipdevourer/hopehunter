@@ -3,9 +3,13 @@ package com.antonk404.hhbot.web;
 import com.antonk404.hhbot.domain.BotUser;
 import com.antonk404.hhbot.domain.dto.MeView;
 import com.antonk404.hhbot.domain.dto.StatsView;
+import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
+import com.antonk404.hhbot.service.CaptchaService;
 import com.antonk404.hhbot.service.DashboardService;
 import com.antonk404.hhbot.service.WhitelistService;
+import com.antonk404.hhbot.service.exceptions.ValidationException;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,10 +28,13 @@ public class MeController {
 
     private final DashboardService dashboardService;
     private final WhitelistService whitelistService;
+    private final CaptchaService captchaService;
 
-    public MeController(DashboardService dashboardService, WhitelistService whitelistService) {
+    public MeController(
+            DashboardService dashboardService, WhitelistService whitelistService, CaptchaService captchaService) {
         this.dashboardService = dashboardService;
         this.whitelistService = whitelistService;
+        this.captchaService = captchaService;
     }
 
     @GetMapping("/me")
@@ -46,6 +53,23 @@ public class MeController {
                                 @RequestBody NotificationsRequest request) {
         whitelistService.setNotifyApplied(user, request.applied());
         return dashboardService.me(user);
+    }
+
+    /**
+     * «Я прошёл капчу»: если hh снова пускает, стоп снимается сразу. Отказ приходит обычной
+     * ошибкой с готовой фразой - приложению остаётся её показать.
+     */
+    @PostMapping("/me/captcha")
+    public MeView captcha(@RequestAttribute(AuthInterceptor.USER) BotUser user) {
+        switch (captchaService.recheck(user)) {
+            case GONE, NOTHING_TO_LIFT -> {
+                return dashboardService.me(user);
+            }
+            case STILL_THERE -> throw new ValidationException(null,
+                    "hh всё ещё показывает капчу. Пройди её на hh.ru и нажми ещё раз.");
+            case TOO_SOON -> throw new ValidationException(null, "Подожди минуту и нажми ещё раз.");
+            default -> throw new HhSessionExpiredException();
+        }
     }
 
     @GetMapping("/stats")

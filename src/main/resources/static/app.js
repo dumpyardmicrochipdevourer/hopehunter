@@ -302,7 +302,9 @@
 
     paint(`${brand}<div class="stack"><div class="shell">
       ${expired ? `<div class="alert"><div><h2>hh отключился</h2><p>сессия истекла</p></div><a class="btn small" href="#/connect">переподключить</a></div>` : ''}
-      ${me.stopped && !expired ? `<div class="alert"><div><h2>стоп до завтра</h2><p>капча или суточный лимит hh</p></div></div>` : ''}
+      ${me.stopped && !expired ? (me.stopReason === 'CAPTCHA'
+        ? `<div class="alert"><div><h2>hh показал капчу</h2><p>пройди её на hh.ru</p></div><button type="button" class="btn small" data-act="captcha">прошёл</button></div>`
+        : `<div class="alert"><div><h2>стоп до завтра</h2><p>hh больше не принимает отклики сегодня</p></div></div>`) : ''}
       <div class="status"><span><small>статус</small><strong>${status}</strong></span>${switchBtn(!me.paused && !expired, 'Работа бота', 'pause', expired ? ' disabled' : '')}</div>
       <div class="block">
         <a class="kv${dim}" href="#/connect"><span>аккаунт</span><span>${esc(me.account.ownerName || (connected ? 'подключён' : 'не подключён'))}</span></a>
@@ -321,6 +323,19 @@
       el.setAttribute('aria-checked', String(applied));
       haptic();
       try { await api('PUT', '/me/notifications', { applied }); } catch (e) { toast(e.message, true); el.setAttribute('aria-checked', String(!applied)); }
+    };
+
+    // Капчу человек проходит на hh сам; кнопка только спрашивает hh, пускает ли он снова.
+    actions.captcha = async (el) => {
+      el.disabled = true;
+      try {
+        await api('POST', '/me/captcha');
+        haptic('medium');
+      } catch (e) {
+        toast(e.message, true);
+      }
+      el.disabled = false;
+      if (!stale(seq)) home(seq).catch(() => {});
     };
 
     actions.pause = async (el) => {
