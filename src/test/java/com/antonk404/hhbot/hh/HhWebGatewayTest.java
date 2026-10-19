@@ -144,6 +144,29 @@ class HhWebGatewayTest {
                         List.of("REMOTE", "HYBRID"), List.of("FULL"), List.of("not_from_agency", "accredited_it"), 7), 0));
     }
 
+    /**
+     * Проверка после капчи: обычная страница, а не отклик. Капчу hh показывает своей страницей,
+     * поэтому важен адрес, на который нас привели, а не содержимое ответа.
+     */
+    @Test
+    void probeTellsFineFromCaptchaAndFromDeadSession() {
+        FakeHttp fine = new FakeHttp(ok("<html>мои отклики</html>"));
+        assertEquals(HhGateway.Probe.OK, gateway(fine).probe(COOKIES));
+        assertEquals("https://hh.ru/applicant/negotiations", fine.urls.getFirst());
+        assertEquals("hhtoken=tok; _xsrf=xs", fine.headers.get("Cookie"));
+
+        FakeHttp captcha = new FakeHttp(
+                new HhHttp.Response(302, "", "https://hh.ru/account/captcha?backurl=%2Fapplicant%2Fnegotiations"),
+                ok("<html>докажите, что вы человек</html>"));
+        assertEquals(HhGateway.Probe.CAPTCHA, gateway(captcha).probe(COOKIES));
+
+        FakeHttp forbidden = new FakeHttp(new HhHttp.Response(403, "", null));
+        assertEquals(HhGateway.Probe.CAPTCHA, gateway(forbidden).probe(COOKIES));
+
+        FakeHttp login = new FakeHttp(new HhHttp.Response(302, "", "/account/login?backurl=x"));
+        assertEquals(HhGateway.Probe.EXPIRED, gateway(login).probe(COOKIES));
+    }
+
     /** Ответ - настоящий, снят с hh 2026-10-03 запросом «каз». */
     @Test
     void parsesAreaSuggest() {

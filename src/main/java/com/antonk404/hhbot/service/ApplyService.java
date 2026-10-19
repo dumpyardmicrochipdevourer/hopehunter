@@ -74,9 +74,9 @@ public class ApplyService {
             case ApplyResult.NeedsTest test ->
                     log(user, rule, vacancy, ApplicationState.MANUAL, "тест работодателя");
             case ApplyResult.LimitReached limit ->
-                    rateLimiter.stopUntilTomorrow(user.getId(), "суточный лимит hh");
+                    rateLimiter.stopUntilTomorrow(user.getId(), RateLimiter.Stop.HH_LIMIT);
             case ApplyResult.Captcha captcha ->
-                    rateLimiter.stopUntilTomorrow(user.getId(), "капча");
+                    rateLimiter.stopUntilTomorrow(user.getId(), RateLimiter.Stop.CAPTCHA);
             case ApplyResult.SessionExpired expired -> hhAccountService.markExpired(user.getId());
             // Не в журнал: сбой сети не должен навсегда закрывать вакансию для повторной попытки.
             case ApplyResult.Failed failed -> {

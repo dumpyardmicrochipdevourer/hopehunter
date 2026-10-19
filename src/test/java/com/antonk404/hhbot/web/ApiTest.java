@@ -2,10 +2,14 @@ package com.antonk404.hhbot.web;
 
 import com.antonk404.hhbot.domain.BotUser;
 import com.antonk404.hhbot.domain.RuleMode;
+import com.antonk404.hhbot.domain.dto.AccountView;
+import com.antonk404.hhbot.domain.dto.MeView;
 import com.antonk404.hhbot.domain.dto.RuleData;
 import com.antonk404.hhbot.domain.dto.RuleView;
 import com.antonk404.hhbot.hh.exceptions.HhException;
 import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
+import com.antonk404.hhbot.service.CaptchaService;
+import com.antonk404.hhbot.service.DashboardService;
 import com.antonk404.hhbot.service.RuleService;
 import com.antonk404.hhbot.service.WhitelistService;
 import com.antonk404.hhbot.telegram.access.BotContact;
@@ -41,6 +45,8 @@ class ApiTest {
 
     private final RuleService ruleService = mock(RuleService.class);
     private final WhitelistService whitelistService = mock(WhitelistService.class);
+    private final DashboardService dashboardService = mock(DashboardService.class);
+    private final CaptchaService captchaService = mock(CaptchaService.class);
 
     private MockMvc mvc;
     private BotUser user;
@@ -53,7 +59,8 @@ class ApiTest {
         when(whitelistService.resolve(42L, "anton")).thenReturn(Optional.of(user));
 
         InitDataValidator validator = new InitDataValidator(TOKEN, Duration.ofHours(24), Clock.systemUTC());
-        mvc = MockMvcBuilders.standaloneSetup(new RuleController(ruleService))
+        mvc = MockMvcBuilders.standaloneSetup(new RuleController(ruleService),
+                        new MeController(dashboardService, whitelistService, captchaService))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .addInterceptors(new AuthInterceptor(validator, whitelistService, new BotContact("@MicrochipDDDD")))
                 .build();
@@ -64,6 +71,32 @@ class ApiTest {
         return new RuleView(7L, "java", "java", "k8s", null, true, 1, "Москва", null, true, List.of(),
                 List.of("REMOTE", "HYBRID"), List.of(), List.of(), null, null,
                 "hash", "Java dev", null, RuleMode.CONFIRM, 30, 15, true, false, true, 0);
+    }
+
+    private static MeView me(boolean stopped) {
+        return new MeView("anton", false, stopped, stopped ? "CAPTCHA" : null,
+                new AccountView("ACTIVE", "Антон", null), 1, 1, 0, 30, true);
+    }
+
+    /** Кнопка «капчу прошёл»: либо стоп снят, либо готовая фраза, почему нет. */
+    @Test
+    void passedCaptchaLiftsTheStopOrSaysWhyNot() throws Exception {
+        when(dashboardService.me(user)).thenReturn(me(false));
+        when(captchaService.recheck(user)).thenReturn(CaptchaService.Recheck.GONE);
+        mvc.perform(post("/api/me/captcha").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stopped").value(false))
+                .andExpect(jsonPath("$.stopReason").value((Object) null));
+
+        when(captchaService.recheck(user)).thenReturn(CaptchaService.Recheck.STILL_THERE);
+        mvc.perform(post("/api/me/captcha").header("Authorization", auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("validation"));
+
+        when(captchaService.recheck(user)).thenReturn(CaptchaService.Recheck.SESSION_EXPIRED);
+        mvc.perform(post("/api/me/captcha").header("Authorization", auth))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("hh_session_expired"));
     }
 
     @Test
