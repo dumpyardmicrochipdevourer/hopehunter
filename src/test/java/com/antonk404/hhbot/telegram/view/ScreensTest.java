@@ -117,6 +117,7 @@ class ScreensTest {
         for (Screen screen : List.of(
                 menuScreens.home(user), menuScreens.stats(user),
                 MenuScreens.retry("Нужно число, например <code>88</code>.", "r:1:gs"),
+                MenuScreens.captcha("hh показал капчу"),
                 MenuScreens.problem("hh не отвечает.", "Ещё раз", "acc:resumes", "acc:show"),
                 accountScreens.account(user), accountScreens.connectIntro(),
                 accountScreens.connectSteps("chrome"), accountScreens.connectSteps("firefox"),

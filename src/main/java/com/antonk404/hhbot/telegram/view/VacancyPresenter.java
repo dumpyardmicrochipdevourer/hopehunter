@@ -4,6 +4,7 @@ import com.antonk404.hhbot.domain.BotUser;
 import com.antonk404.hhbot.domain.ResponseRule;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
 import com.antonk404.hhbot.service.ScanListener;
+import com.antonk404.hhbot.service.util.RateLimiter;
 import com.antonk404.hhbot.telegram.TelegramReplies;
 import com.antonk404.hhbot.telegram.state.VacancyCards;
 import org.springframework.stereotype.Component;
@@ -43,11 +44,16 @@ public class VacancyPresenter implements ScanListener {
                 + "Я не смог: " + Html.esc(reason) + ".\n\n" + VacancyView.text(vacancy));
     }
 
+    /** Капча - единственный стоп, который человек может снять сам, поэтому у неё свой экран. */
     @Override
-    public void stopped(BotUser user, String reason) {
+    public void stopped(BotUser user, RateLimiter.Stop reason) {
+        if (reason == RateLimiter.Stop.CAPTCHA) {
+            replies.menu(user.getChatId(), MenuScreens.captcha("hh показал капчу"));
+            return;
+        }
         replies.menu(user.getChatId(), new Screen(
-                "⛔ <b>Отклики остановлены до завтра</b>\n\n" + Html.esc(capitalize(reason)) + ".",
-                Kb.of().row(Kb.link("Открыть hh.ru", "https://hh.ru/applicant/negotiations")).build()));
+                "⛔ <b>Отклики остановлены до завтра</b>\n\nhh больше не принимает отклики сегодня.",
+                Kb.of().row(Kb.link("Открыть hh.ru", MenuScreens.NEGOTIATIONS_URL)).build()));
     }
 
     @Override
@@ -57,7 +63,4 @@ public class VacancyPresenter implements ScanListener {
                 Kb.of().row(btn("🔑 Подключить заново", Cb.CONNECT)).build()));
     }
 
-    private static String capitalize(String text) {
-        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
-    }
 }

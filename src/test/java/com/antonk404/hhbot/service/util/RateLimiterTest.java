@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -67,10 +68,44 @@ class RateLimiterTest {
         RateLimiter limiter = at("2026-10-03T20:30:00");
 
         assertFalse(limiter.isStopped(5L));
-        limiter.stopUntilTomorrow(5L, "captcha");
+        limiter.stopUntilTomorrow(5L, RateLimiter.Stop.CAPTCHA);
 
         assertTrue(limiter.isStopped(5L));
         assertFalse(limiter.isStopped(6L));
         assertEquals(Duration.ofMinutes(210), store.ttls.get("stop:5"));
+    }
+
+    /** Капчу человек снимает сам, суточный лимит hh - нет, поэтому причина стопа переживает redis. */
+    @Test
+    void stopRemembersWhyItWasSet() {
+        RateLimiter limiter = at("2026-10-03T20:30:00");
+
+        limiter.stopUntilTomorrow(5L, RateLimiter.Stop.CAPTCHA);
+        assertEquals(Optional.of(RateLimiter.Stop.CAPTCHA), limiter.stop(5L));
+
+        limiter.stopUntilTomorrow(5L, RateLimiter.Stop.HH_LIMIT);
+        assertEquals(Optional.of(RateLimiter.Stop.HH_LIMIT), limiter.stop(5L));
+
+        limiter.clearStop(5L);
+        assertEquals(Optional.empty(), limiter.stop(5L));
+    }
+
+    /** Стоп, записанный прошлой версией бота: причину не разобрать, считаем строгий случай. */
+    @Test
+    void unknownStopReasonCountsAsHhLimit() {
+        RateLimiter limiter = at("2026-10-03T20:30:00");
+        store.values.put("stop:5", "капча");
+
+        assertEquals(Optional.of(RateLimiter.Stop.HH_LIMIT), limiter.stop(5L));
+    }
+
+    @Test
+    void recheckIsAllowedOnceAMinute() {
+        RateLimiter limiter = at("2026-10-03T20:30:00");
+
+        assertTrue(limiter.allowRecheck(5L));
+        assertFalse(limiter.allowRecheck(5L));
+        assertTrue(limiter.allowRecheck(6L));
+        assertEquals(Duration.ofMinutes(1), store.ttls.get("recheck:5"));
     }
 }

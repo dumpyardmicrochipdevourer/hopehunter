@@ -35,6 +35,10 @@ public class InMemoryKeyValueStore implements KeyValueStore {
     public long increment(String key, Duration ttl) {
         long next = Long.parseLong(values.getOrDefault(key, "0")) + 1;
         values.put(key, String.valueOf(next));
+        // Как в redis: ttl ставится при создании ключа и не продлевается следующими инкрементами.
+        if (next == 1) {
+            ttls.put(key, ttl);
+        }
         return next;
     }
 

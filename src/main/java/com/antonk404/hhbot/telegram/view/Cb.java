@@ -6,6 +6,8 @@ public final class Cb {
     public static final String HOME = "m:home";
     public static final String STATS = "m:stats";
     public static final String PAUSE = "m:pause";
+    /** «Капчу прошёл» - проверить и снять стоп досрочно. */
+    public static final String CAPTCHA = "m:captcha";
 
     public static final String ACCOUNT = "acc:show";
     public static final String CONNECT = "acc:cookies";

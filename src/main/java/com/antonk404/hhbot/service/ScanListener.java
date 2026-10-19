@@ -3,6 +3,7 @@ package com.antonk404.hhbot.service;
 import com.antonk404.hhbot.domain.BotUser;
 import com.antonk404.hhbot.domain.ResponseRule;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
+import com.antonk404.hhbot.service.util.RateLimiter;
 
 /**
  * Куда сканер сообщает о находках. Интерфейс здесь, реализация в telegram: сервисам незачем
@@ -18,8 +19,8 @@ public interface ScanListener {
     /** Автоматически не откликнуться - человеку нужна ссылка. */
     void manual(BotUser user, ResponseRule rule, HhVacancy vacancy, String reason);
 
-    /** Отклики пользователя остановлены до завтра. */
-    void stopped(BotUser user, String reason);
+    /** Отклики пользователя остановлены: до завтра или до пройденной капчи. */
+    void stopped(BotUser user, RateLimiter.Stop reason);
 
     void sessionExpired(BotUser user);
 }

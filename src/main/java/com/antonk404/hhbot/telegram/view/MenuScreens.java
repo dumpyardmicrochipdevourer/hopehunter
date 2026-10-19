@@ -31,6 +31,9 @@ import static com.antonk404.hhbot.telegram.view.Kb.btn;
 @Component
 public class MenuScreens {
 
+    /** Куда вести человека на hh: страница откликов открывается только залогиненному. */
+    public static final String NEGOTIATIONS_URL = "https://hh.ru/applicant/negotiations";
+
     private final HhAccountService hhAccountService;
     private final ResponseRuleRepository responseRuleRepository;
     private final ApplicationLogRepository applicationLogRepository;
@@ -99,6 +102,8 @@ public class MenuScreens {
         StringBuilder text = new StringBuilder("<b>Автоотклики на hh.ru</b>\n\n");
         if (user.isPaused()) {
             text.append("⏸ <b>Пауза.</b> Ничего не ищу и не откликаюсь.\n\n");
+        } else if (rateLimiter.stop(user.getId()).orElse(null) == RateLimiter.Stop.CAPTCHA) {
+            text.append("⛔ <b>hh показал капчу.</b> Пройди её на hh.ru.\n\n");
         } else if (rateLimiter.isStopped(user.getId())) {
             text.append("⛔ <b>Отклики остановлены до завтра.</b>\n\n");
         } else {
@@ -150,6 +155,19 @@ public class MenuScreens {
         Instant midnight = LocalDate.now(zone).atStartOfDay(zone).toInstant();
         return applicationLogRepository.countByUserIdAndStateAndCreatedAtAfter(
                 user.getId(), ApplicationState.SENT, midnight);
+    }
+
+    /**
+     * Капча: пройти её бот не может и не пытается - это и есть смысл капчи. Он показывает, куда
+     * идти, и ждёт нажатия, чтобы проверить, пускает ли hh снова.
+     */
+    public static Screen captcha(String headline) {
+        return new Screen("⛔ <b>" + Html.esc(headline) + "</b>\n\nПройди капчу на hh.ru и нажми «Прошёл».",
+                Kb.of()
+                        .row(Kb.link("Открыть hh.ru", NEGOTIATIONS_URL))
+                        .row(btn("✅ Прошёл", Cb.CAPTCHA))
+                        .row(btn("🏠 Меню", Cb.HOME))
+                        .build());
     }
 
     /** Вопрос, на который человек отвечает текстом. Единственная кнопка - отмена. */

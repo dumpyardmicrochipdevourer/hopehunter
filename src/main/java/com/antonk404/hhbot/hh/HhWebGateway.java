@@ -277,6 +277,26 @@ public class HhWebGateway implements HhGateway {
     }
 
     /**
+     * Капчу hh показывает не в теле ответа, а своей страницей: он уводит на неё редиректом.
+     * Поэтому смотрим адрес, на котором мы в итоге оказались, а не текст страницы - слово
+     * «captcha» встречается в скриптах и на совершенно обычной выдаче.
+     */
+    @Override
+    public Probe probe(HhSessionCookies cookies) {
+        Page page = follow(baseUrl + "/applicant/negotiations", headers(cookies));
+        if (redirectsToLogin(page.response()) || page.response().status() == 401) {
+            return Probe.EXPIRED;
+        }
+        if (page.url().toLowerCase(Locale.ROOT).contains("captcha") || page.response().status() == 403) {
+            return Probe.CAPTCHA;
+        }
+        if (page.response().status() != 200) {
+            throw new HhException("hh answered " + page.response().status());
+        }
+        return Probe.OK;
+    }
+
+    /**
      * GET со следованием редиректам внутри hh.
      *
      * <p>Транспорт редиректам не следует нарочно: редирект на страницу входа - признак мёртвой
@@ -285,12 +305,20 @@ public class HhWebGateway implements HhGateway {
      * останавливаемся и отдаём ответ как есть.
      */
     private HhHttp.Response getPage(String url, Map<String, String> headers) {
+        return follow(url, headers).response();
+    }
+
+    /** Ответ вместе с адресом, на котором он получен: после редиректов это уже не тот url, что просили. */
+    private record Page(String url, HhHttp.Response response) {
+    }
+
+    private Page follow(String url, Map<String, String> headers) {
         String current = url;
         for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
             HhHttp.Response response = http.get(current, headers);
             boolean redirect = response.status() >= 300 && response.status() < 400 && response.location() != null;
             if (!redirect || redirectsToLogin(response)) {
-                return response;
+                return new Page(current, response);
             }
             URI next = URI.create(current).resolve(response.location());
             String host = next.getHost() == null ? "" : next.getHost();
