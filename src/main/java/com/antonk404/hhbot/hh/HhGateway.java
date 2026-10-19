@@ -16,6 +16,13 @@ import java.util.List;
  */
 public interface HhGateway {
 
+    /** Чем ответил hh на обычную страницу: пускает, требует капчу или не узнаёт куки. */
+    enum Probe {
+        OK,
+        CAPTCHA,
+        EXPIRED
+    }
+
     /**
      * Имя владельца и его резюме. Заодно служит проверкой сессии.
      *
@@ -38,4 +45,10 @@ public interface HhGateway {
 
     /** Не бросает на ожидаемых отказах hh - они приходят как {@link ApplyResult}. */
     ApplyResult apply(HhSessionCookies cookies, String vacancyId, String resumeHash, String letter);
+
+    /**
+     * Пускает ли hh эту сессию прямо сейчас: одна страница откликов, ни одного запроса отклика.
+     * Нужно после капчи - узнать, прошла ли она, не тратя на это попытку отклика.
+     */
+    Probe probe(HhSessionCookies cookies);
 }
