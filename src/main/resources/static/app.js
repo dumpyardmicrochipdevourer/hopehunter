@@ -456,12 +456,12 @@
 
   const EMPTY_RULE = {
     name: '', keywords: '', skills: '', minusWords: '', titleOnly: true, areaId: null, areaName: null, salaryFrom: null,
-    onlyWithSalary: true, experience: null, workFormats: [], employmentForms: [], labels: [], periodDays: null,
+    onlyWithSalary: true, experiences: [], workFormats: [], employmentForms: [], labels: [], periodDays: null,
     companyBlacklist: '', resumeHash: null,
     resumeTitle: null, letterTemplateId: null, mode: 'CONFIRM', dailyLimit: 30, intervalMinutes: 15, skipWithTest: true,
   };
   const RULE_FIELDS = ['name', 'keywords', 'skills', 'minusWords', 'titleOnly', 'areaId', 'areaName', 'salaryFrom', 'onlyWithSalary',
-    'experience', 'workFormats', 'employmentForms', 'labels', 'periodDays', 'companyBlacklist', 'resumeHash', 'letterTemplateId', 'mode', 'dailyLimit', 'intervalMinutes', 'skipWithTest'];
+    'experiences', 'workFormats', 'employmentForms', 'labels', 'periodDays', 'companyBlacklist', 'resumeHash', 'letterTemplateId', 'mode', 'dailyLimit', 'intervalMinutes', 'skipWithTest'];
   const payload = (rule) => Object.fromEntries(RULE_FIELDS.map((key) => [key, rule[key] === '' ? null : rule[key]]));
 
   async function ruleForm(seq, id) {
@@ -478,7 +478,6 @@
 
     const dirty = () => JSON.stringify(payload(rule)) !== saved;
     const letterName = () => (letterList.find((l) => l.id === rule.letterTemplateId) || {}).name || 'без письма';
-    const experienceName = () => (info.experience.find((o) => o.code === rule.experience) || {}).label || 'любой';
     /** Подписи выбранных кодов через запятую; если ничего не выбрано - слово «любой». */
     const chosen = (options, codes, none) =>
       options.filter((o) => codes.includes(o.code)).map((o) => o.label).join(', ') || none;
@@ -517,7 +516,7 @@
           <span class="hint">например: <code>kubernetes OR k8s</code></span>
           ${pick('workFormats', 'формат работы', chosen(info.workFormats, rule.workFormats, 'любой'), 'formats')}
           ${pick('employmentForms', 'занятость', chosen(info.employmentForms, rule.employmentForms, 'любая'), 'employment')}
-          ${pick('experience', 'опыт', experienceName(), 'experience')}
+          ${pick('experiences', 'опыт', chosen(info.experience, rule.experiences, 'любой'), 'experience')}
           ${pick('periodDays', 'свежесть', period(rule.periodDays), 'period')}
           ${pick('labels', 'ещё фильтры', rule.labels.length ? `выбрано: ${rule.labels.length}` : 'нет', 'labels')}
           ${input('minusWords', 'минус-слова')}
@@ -631,12 +630,7 @@
         .concat(info.periodsDays.map((d) => ({ label: period(d), value: d, checked: rule.periodDays === d }))),
       onPick: (option) => { rule.periodDays = option.value; draw(); },
     });
-    actions.experience = () => openSheet({
-      title: 'опыт в вакансии',
-      options: [{ label: 'любой', value: null, checked: !rule.experience }]
-        .concat(info.experience.map((o) => ({ label: o.label, value: o.code, checked: rule.experience === o.code }))),
-      onPick: (option) => { rule.experience = option.value; draw(); },
-    });
+    actions.experience = () => multiPick('опыт в вакансии', 'можно несколько', info.experience, 'experiences');
     actions.letter = () => openSheet({
       title: 'письмо',
       text: letterList.length ? null : 'писем нет - вкладка «письма»',

@@ -112,6 +112,7 @@ public class RuleService {
         rule.setWorkFormats(codes("workFormats", data.workFormats(), ResponseRule.WORK_FORMATS));
         rule.setEmploymentForms(codes("employmentForms", data.employmentForms(), ResponseRule.EMPLOYMENT_FORMS));
         rule.setLabels(codes("labels", data.labels(), ResponseRule.LABELS));
+        rule.setExperiences(codes("experiences", data.experiences(), ResponseRule.EXPERIENCE_CODES));
         if (data.periodDays() != null && !ResponseRule.PERIODS_DAYS.contains(data.periodDays())) {
             throw new ValidationException("periodDays", "Срок - один из: " + ResponseRule.PERIODS_DAYS + " дней.");
         }
@@ -135,11 +136,6 @@ public class RuleService {
             throw new ValidationException("intervalMinutes", "Интервал - один из: " + ResponseRule.INTERVALS_MINUTES + " минут.");
         }
         rule.setIntervalMinutes(interval);
-
-        if (data.experience() != null && !ResponseRule.EXPERIENCE_CODES.contains(data.experience())) {
-            throw new ValidationException("experience", "Неизвестный код опыта.");
-        }
-        rule.setExperience(data.experience());
 
         int limit = data.dailyLimit() == null ? ResponseRule.DEFAULT_DAILY_LIMIT : data.dailyLimit();
         if (limit < 1 || limit > ResponseRule.MAX_DAILY_LIMIT) {
