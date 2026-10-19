@@ -144,9 +144,7 @@ public class HhWebGateway implements HhGateway {
                 params.add(new String[]{"only_with_salary", "true"});
             }
         }
-        if (query.experience() != null) {
-            params.add(new String[]{"experience", query.experience()});
-        }
+        query.experiences().forEach(code -> params.add(new String[]{"experience", code}));
         query.workFormats().forEach(format -> params.add(new String[]{"work_format", format}));
         query.employmentForms().forEach(form -> params.add(new String[]{"employment_form", form}));
         query.labels().forEach(label -> params.add(new String[]{"label", label}));

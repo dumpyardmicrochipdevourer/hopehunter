@@ -128,9 +128,13 @@ public class RuleCallbackHandler implements CallbackHandler {
             case "exp" -> {
                 if (arg.isEmpty()) {
                     menu.edit(press, screens.experience(rule));
-                } else if (arg.equals("any") || RuleScreens.EXPERIENCE.containsKey(arg)) {
-                    rule.setExperience(arg.equals("any") ? null : arg);
+                } else if (arg.equals("any")) {
+                    rule.setExperiences(List.of());
                     save(press, rule, screens.search(rule));
+                } else if (RuleScreens.EXPERIENCE.containsKey(arg)) {
+                    // Диапазонов можно несколько, поэтому экран остаётся открытым до «Назад».
+                    rule.setExperiences(toggled(rule.getExperiences(), arg));
+                    save(press, rule, screens.experience(rule));
                 }
             }
             case "sal" -> {
@@ -290,6 +294,13 @@ public class RuleCallbackHandler implements CallbackHandler {
     private void save(Access.Press press, ResponseRule rule, Screen next) {
         responseRuleRepository.save(rule);
         menu.edit(press, next, "Сохранил");
+    }
+
+    /** Код включается или выключается; порядок остаётся тем, в каком коды знает hh. */
+    private static List<String> toggled(List<String> chosen, String code) {
+        return ResponseRule.EXPERIENCE_CODES.stream()
+                .filter(candidate -> chosen.contains(candidate) != candidate.equals(code))
+                .toList();
     }
 
     private static Optional<Long> parseLong(String value) {

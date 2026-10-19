@@ -65,8 +65,8 @@ class RuleServiceTest {
     }
 
     /** Правило с одним необычным полем - остальное как в {@link #data}. */
-    private static RuleData with(Integer salary, String experience, Long letterId, Integer interval) {
-        return new RuleData("java", "java", null, null, null, null, null, salary, null, experience, null, null,
+    private static RuleData with(Integer salary, List<String> experiences, Long letterId, Integer interval) {
+        return new RuleData("java", "java", null, null, null, null, null, salary, null, experiences, null, null,
                 null, null, null, "hash", letterId, null, null, interval, null);
     }
 
@@ -116,8 +116,8 @@ class RuleServiceTest {
                 () -> service.update(user, 7L, data("java", "java", "hash", 201))).getField());
         assertEquals("name", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, data(" ", "java", "hash", 10))).getField());
-        assertEquals("experience", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, with(null, "tenYears", null, null))).getField());
+        assertEquals("experiences", assertThrows(ValidationException.class,
+                () -> service.update(user, 7L, with(null, List.of("tenYears"), null, null))).getField());
         assertEquals("salaryFrom", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, with(-5, null, null, null))).getField());
     }
@@ -175,6 +175,30 @@ class RuleServiceTest {
                 () -> service.update(user, 7L, filters(null, null, null, List.of("with_snacks"), null))).getField());
         assertEquals("periodDays", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, filters(null, null, null, null, 5))).getField());
+    }
+
+    /** В одной вакансии вилка опыта бывает шире одного диапазона - правило должно уметь оба. */
+    @Test
+    void experienceKeepsSeveralRangesInHhOrder() {
+        service.update(user, 7L, with(null, List.of("between3And6", "between1And3"), null, null));
+
+        assertEquals(List.of("between1And3", "between3And6"), existing.getExperiences());
+
+        service.update(user, 7L, with(null, null, null, null));
+        assertEquals(List.of(), existing.getExperiences());
+    }
+
+    /** Правила, созданные когда опыт был одним кодом, читаются по старой колонке. */
+    @Test
+    void legacySingleExperienceReadsAsOneRange() {
+        ResponseRule legacy = new ResponseRule(1L, "old");
+        ReflectionTestUtils.setField(legacy, "experience", "between1And3");
+
+        assertEquals(List.of("between1And3"), legacy.getExperiences());
+
+        legacy.setExperiences(List.of("between1And3", "moreThan6"));
+        assertEquals(List.of("between1And3", "moreThan6"), legacy.getExperiences());
+        assertNull(ReflectionTestUtils.getField(legacy, "experience"));
     }
 
     /** Правила, созданные когда формат был одним флажком «только удалёнка», должны читаться по-прежнему. */
