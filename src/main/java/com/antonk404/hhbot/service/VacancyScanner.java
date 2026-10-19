@@ -196,11 +196,11 @@ public class VacancyScanner {
                 case ApplyResult.AlreadyApplied already -> {
                 }
                 case ApplyResult.LimitReached limit -> {
-                    listener.stopped(user, "hh больше не принимает отклики сегодня");
+                    listener.stopped(user, RateLimiter.Stop.HH_LIMIT);
                     return false;
                 }
                 case ApplyResult.Captcha captcha -> {
-                    listener.stopped(user, "hh показал капчу");
+                    listener.stopped(user, RateLimiter.Stop.CAPTCHA);
                     return false;
                 }
                 case ApplyResult.SessionExpired expired -> {

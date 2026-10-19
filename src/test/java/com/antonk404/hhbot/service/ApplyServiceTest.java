@@ -119,11 +119,11 @@ class ApplyServiceTest {
     void captchaAndHhLimitStopTheUserUntilTomorrow() {
         when(gateway.apply(any(), any(), any(), any())).thenReturn(new ApplyResult.Captcha());
         service.apply(user, rule, VACANCY);
-        verify(limiter).stopUntilTomorrow(eq(1L), eq("капча"));
+        verify(limiter).stopUntilTomorrow(1L, RateLimiter.Stop.CAPTCHA);
 
         when(gateway.apply(any(), any(), any(), any())).thenReturn(new ApplyResult.LimitReached());
         service.apply(user, rule, VACANCY);
-        verify(limiter).stopUntilTomorrow(eq(1L), eq("суточный лимит hh"));
+        verify(limiter).stopUntilTomorrow(1L, RateLimiter.Stop.HH_LIMIT);
 
         verify(limiter, never()).recordSent(any());
         verify(logs, never()).save(any());

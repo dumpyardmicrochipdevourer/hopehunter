@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Optional;
 
 /**
  * Всё, что не даёт боту вести себя как бот: дневной потолок откликов, рабочие часы и стоп до
@@ -21,6 +22,14 @@ import java.time.ZonedDateTime;
  */
 @Component
 public class RateLimiter {
+
+    /** Почему отклики остановлены. Разница важна: одно проходит человек, другое - полночь. */
+    public enum Stop {
+        /** hh показал капчу. Пройти её может только человек, зато сразу. */
+        CAPTCHA,
+        /** Суточный потолок самого hh: до завтра сделать нечего. */
+        HH_LIMIT
+    }
 
     private final KeyValueStore store;
     private final Clock clock;
@@ -65,14 +74,33 @@ public class RateLimiter {
     }
 
     /** Останавливает все отклики пользователя до полуночи: после капчи или суточного лимита hh. */
-    public void stopUntilTomorrow(Long userId, String reason) {
+    public void stopUntilTomorrow(Long userId, Stop reason) {
         ZonedDateTime now = now();
         ZonedDateTime midnight = now.toLocalDate().plusDays(1).atTime(LocalTime.MIDNIGHT).atZone(zone);
-        store.set(stopKey(userId), reason, Duration.between(now, midnight));
+        store.set(stopKey(userId), reason.name(), Duration.between(now, midnight));
+    }
+
+    /** Непонятное значение считаем лимитом hh: это строгий случай, снять его досрочно нельзя. */
+    public Optional<Stop> stop(Long userId) {
+        return store.get(stopKey(userId))
+                .map(value -> value.equals(Stop.CAPTCHA.name()) ? Stop.CAPTCHA : Stop.HH_LIMIT);
     }
 
     public boolean isStopped(Long userId) {
-        return store.get(stopKey(userId)).isPresent();
+        return stop(userId).isPresent();
+    }
+
+    /** Снимает стоп досрочно - когда человек прошёл капчу и hh снова пускает. */
+    public void clearStop(Long userId) {
+        store.delete(stopKey(userId));
+    }
+
+    /**
+     * Не чаще раза в минуту. Кнопку «прошёл капчу» можно нажимать сколько угодно, а вот запрос к
+     * hh на каждое нажатие - это ровно то поведение, из-за которого капча и появилась.
+     */
+    public boolean allowRecheck(Long userId) {
+        return store.increment("recheck:" + userId, Duration.ofMinutes(1)) == 1L;
     }
 
     private ZonedDateTime now() {
