@@ -8,6 +8,8 @@ import com.antonk404.hhbot.domain.ResponseRule;
 import com.antonk404.hhbot.domain.dto.ApplyResult;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
 import com.antonk404.hhbot.domain.repo.ApplicationLogRepository;
+import com.antonk404.hhbot.domain.repo.BotUserRepository;
+import com.antonk404.hhbot.domain.repo.ResponseRuleRepository;
 import com.antonk404.hhbot.domain.repo.LetterTemplateRepository;
 import com.antonk404.hhbot.hh.HhGateway;
 import com.antonk404.hhbot.hh.HhSessionCookies;
@@ -26,6 +28,8 @@ import java.util.Optional;
 @Service
 public class ApplyService {
 
+    private final BotUserRepository users;
+    private final ResponseRuleRepository rules;
     private final HhGateway hhGateway;
     private final HhAccountService hhAccountService;
     private final RateLimiter rateLimiter;
@@ -37,7 +41,9 @@ public class ApplyService {
             HhAccountService hhAccountService,
             RateLimiter rateLimiter,
             ApplicationLogRepository applicationLogRepository,
-            LetterTemplateRepository letterTemplateRepository) {
+            LetterTemplateRepository letterTemplateRepository, BotUserRepository users, ResponseRuleRepository rules) {
+        this.users = users;
+        this.rules = rules;
         this.hhGateway = hhGateway;
         this.hhAccountService = hhAccountService;
         this.rateLimiter = rateLimiter;
@@ -45,7 +51,36 @@ public class ApplyService {
         this.letterTemplateRepository = letterTemplateRepository;
     }
 
+    private final com.antonk404.hhbot.service.util.UserLocks locks = new com.antonk404.hhbot.service.util.UserLocks();
+
     public ApplyResult apply(BotUser user, ResponseRule rule, HhVacancy vacancy) {
+        return locks.withLock(user.getId(), () -> applyCurrent(user.getId(), rule.getId(), vacancy, null));
+    }
+
+    public ApplyResult applyAutomatically(BotUser user, ResponseRule rule, HhVacancy vacancy, String expected) {
+        return locks.withLock(user.getId(), () -> applyCurrent(user.getId(), rule.getId(), vacancy, expected));
+    }
+
+    private ApplyResult applyCurrent(Long userId, Long ruleId, HhVacancy vacancy, String expected) {
+        BotUser user = users.findById(userId).orElse(null);
+        if (user == null) return new ApplyResult.Deferred("Профиль удалён");
+        ResponseRule rule = rules.findByIdAndUserId(ruleId, user.getId()).orElse(null);
+        if (rule == null || !rule.isEnabled() || !rule.isReady())
+            return new ApplyResult.Deferred("Правило выключено или удалено");
+        if (expected != null && (rule.getMode() != com.antonk404.hhbot.domain.RuleMode.AUTO
+                || !expected.equals(VacancyScanner.fingerprint(rule))))
+            return new ApplyResult.Deferred("Настройки правила изменились — обновляю очередь");
+        if (user.isPaused()) return new ApplyResult.Deferred("Отклики на паузе");
+
+        var stop = rateLimiter.stop(user.getId());
+        if (stop.isPresent()) return stop.get() == RateLimiter.Stop.CAPTCHA
+                ? new ApplyResult.Captcha() : new ApplyResult.LimitReached();
+        if (rateLimiter.exhausted(user.getId())) return new ApplyResult.Deferred("Сегодня отправлено 100 откликов. Продолжу завтра");
+        if (rateLimiter.coolingDown(user.getId())) return new ApplyResult.Deferred("Пауза между откликами — попробуй через минуту");
+        return applyChecked(user, rule, vacancy);
+    }
+
+    private ApplyResult applyChecked(BotUser user, ResponseRule rule, HhVacancy vacancy) {
         if (applicationLogRepository.existsByUserIdAndVacancyId(user.getId(), vacancy.id())) {
             return new ApplyResult.AlreadyApplied();
         }
@@ -63,10 +98,10 @@ public class ApplyService {
             return new ApplyResult.Failed("работодатель требует письмо, а в правиле его нет");
         }
 
+        rateLimiter.recordAttempt(user.getId());
         ApplyResult result = hhGateway.apply(cookies.get(), vacancy.id(), rule.getResumeHash(), letter);
         switch (result) {
             case ApplyResult.Sent sent -> {
-                rateLimiter.recordSent(rule);
                 log(user, rule, vacancy, ApplicationState.SENT, null);
             }
             case ApplyResult.AlreadyApplied already ->
@@ -79,6 +114,7 @@ public class ApplyService {
                     rateLimiter.stopUntilTomorrow(user.getId(), RateLimiter.Stop.CAPTCHA);
             case ApplyResult.SessionExpired expired -> hhAccountService.markExpired(user.getId());
             // Не в журнал: сбой сети не должен навсегда закрывать вакансию для повторной попытки.
+            case ApplyResult.Deferred deferred -> {}
             case ApplyResult.Failed failed -> {
             }
         }
@@ -86,9 +122,11 @@ public class ApplyService {
     }
 
     public void skip(BotUser user, ResponseRule rule, HhVacancy vacancy) {
-        if (!applicationLogRepository.existsByUserIdAndVacancyId(user.getId(), vacancy.id())) {
-            log(user, rule, vacancy, ApplicationState.SKIPPED, "пропущено вручную");
-        }
+        locks.withLock(user.getId(), () -> {
+            if (!applicationLogRepository.existsByUserIdAndVacancyId(user.getId(), vacancy.id()))
+                log(user, rule, vacancy, ApplicationState.SKIPPED, "пропущено вручную");
+            return null;
+        });
     }
 
     /** Письмо по шаблону правила; пустая строка, если шаблона нет. */

@@ -26,7 +26,7 @@ public class MetaController {
     }
 
     public record Meta(List<Area> areas, List<Option> experience, List<Alias> aliases,
-                       int defaultDailyLimit, int maxDailyLimit, List<Integer> intervalsMinutes,
+                       int dailyLimit,
                        List<Option> workFormats, List<Option> employmentForms, List<Option> labels,
                        List<Integer> periodsDays) {
     }
@@ -38,7 +38,7 @@ public class MetaController {
             List.of(new Alias("company_name", "компания"), new Alias("vacancy_name", "название вакансии"),
                     new Alias("salary", "зарплата из вакансии, если указана"), new Alias("city", "город"),
                     new Alias("my_name", "твоё имя из hh")),
-            ResponseRule.DEFAULT_DAILY_LIMIT, ResponseRule.MAX_DAILY_LIMIT, ResponseRule.INTERVALS_MINUTES,
+            com.antonk404.hhbot.service.util.RateLimiter.DAILY_LIMIT,
             // Подписи - как в фильтрах самого hh, чтобы человек узнавал их.
             List.of(new Option("REMOTE", "удалённо"), new Option("HYBRID", "гибрид"),
                     new Option("ON_SITE", "в офисе"), new Option("FIELD_WORK", "разъездная")),

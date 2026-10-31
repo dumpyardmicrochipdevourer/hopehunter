@@ -106,12 +106,14 @@ public class MenuScreens {
             text.append("⛔ <b>hh показал капчу.</b> Пройди её на hh.ru.\n\n");
         } else if (rateLimiter.isStopped(user.getId())) {
             text.append("⛔ <b>Отклики остановлены до завтра.</b>\n\n");
+        } else if (rateLimiter.exhausted(user.getId())) {
+            text.append("✅ <b>Сегодня отправлено 100 откликов.</b> Продолжу завтра.\n\n");
         } else {
             text.append("🟢 Работаю.\n\n");
         }
         text.append("Аккаунт: ").append(name == null || name.isBlank() ? "подключён" : Html.esc(name)).append('\n');
         text.append("Правила: ").append(enabled).append(" из ").append(rules).append(" включено\n");
-        text.append("Откликов сегодня: <b>").append(sentToday(user)).append("</b>");
+        text.append("Откликов сегодня: <b>").append(sentToday(user)).append(" из 100</b>");
         return new Screen(text.toString(), sections(appButton(Kb.of()), user).build());
     }
 

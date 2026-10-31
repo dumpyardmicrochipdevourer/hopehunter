@@ -61,19 +61,19 @@ class RuleServiceTest {
 
     private static RuleData data(String name, String keywords, String resumeHash, Integer limit) {
         return new RuleData(name, keywords, null, " ", null, null, null, null, null, null, null, null, null, null,
-                null, resumeHash, null, null, limit, null, null);
+                null, resumeHash, null, null, null);
     }
 
     /** Правило с одним необычным полем - остальное как в {@link #data}. */
     private static RuleData with(Integer salary, List<String> experiences, Long letterId, Integer interval) {
         return new RuleData("java", "java", null, null, null, null, null, salary, null, experiences, null, null,
-                null, null, null, "hash", letterId, null, null, interval, null);
+                null, null, null, "hash", letterId, null, null);
     }
 
     private static RuleData filters(String skills, List<String> formats, List<String> forms, List<String> labels,
                                     Integer period) {
         return new RuleData("java", "java", skills, null, null, null, null, null, null, null, formats, forms,
-                labels, period, null, "hash", null, null, null, null, null);
+                labels, period, null, "hash", null, null, null);
     }
 
     @Test
@@ -84,8 +84,6 @@ class RuleServiceTest {
         assertFalse(view.enabled());
         assertEquals(RuleMode.CONFIRM, view.mode());
         assertTrue(view.titleOnly());
-        assertEquals(30, view.dailyLimit());
-        assertEquals(15, view.intervalMinutes());
         assertTrue(view.onlyWithSalary());
         assertTrue(view.skipWithTest());
         assertNull(view.minusWords());
@@ -107,13 +105,10 @@ class RuleServiceTest {
 
         verify(account, never()).profile(any());
         assertEquals("java 2", existing.getName());
-        assertEquals(10, existing.getDailyLimit());
     }
 
     @Test
     void rejectsOutOfRangeValuesByField() {
-        assertEquals("dailyLimit", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, data("java", "java", "hash", 201))).getField());
         assertEquals("name", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, data(" ", "java", "hash", 10))).getField());
         assertEquals("experiences", assertThrows(ValidationException.class,
@@ -123,30 +118,21 @@ class RuleServiceTest {
     }
 
     @Test
-    void limitGoesUpToTwoHundred() {
-        service.update(user, 7L, data("java", "java", "hash", 200));
-
-        assertEquals(200, existing.getDailyLimit());
-    }
-
-    @Test
-    void intervalMustBeOneOfTheOffered() {
-        assertEquals("intervalMinutes", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, with(null, null, null, 1))).getField());
-
-        service.update(user, 7L, with(null, null, null, 60));
-        assertEquals(60, existing.getIntervalMinutes());
+    void legacySchedulingFieldsAreIgnored() {
+        service.update(user, 7L, data("java", "java", "hash", 500));
+        service.update(user, 7L, with(null, null, null, 1));
+        assertEquals("java", existing.getKeywords());
     }
 
     @Test
     void areaKeepsItsNameAndClearsWithIt() {
         service.update(user, 7L, new RuleData("java", "java", null, null, null, 88, " Казань ", null, null, null,
-                null, null, null, null, null, "hash", null, null, null, null, null));
+                null, null, null, null, null, "hash", null, null, null));
         assertEquals(88, existing.getAreaId());
         assertEquals("Казань", existing.getAreaName());
 
         service.update(user, 7L, new RuleData("java", "java", null, null, null, null, "Казань", null, null, null,
-                null, null, null, null, null, "hash", null, null, null, null, null));
+                null, null, null, null, null, "hash", null, null, null));
         assertNull(existing.getAreaName());
     }
 

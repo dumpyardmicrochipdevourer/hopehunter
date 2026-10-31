@@ -42,7 +42,9 @@ class ApplyServiceTest {
     private final ApplicationLogRepository logs = mock(ApplicationLogRepository.class);
     private final LetterTemplateRepository templates = mock(LetterTemplateRepository.class);
 
-    private final ApplyService service = new ApplyService(gateway, account, limiter, logs, templates);
+    private final com.antonk404.hhbot.domain.repo.BotUserRepository users = mock(com.antonk404.hhbot.domain.repo.BotUserRepository.class);
+    private final com.antonk404.hhbot.domain.repo.ResponseRuleRepository rules = mock(com.antonk404.hhbot.domain.repo.ResponseRuleRepository.class);
+    private final ApplyService service = new ApplyService(gateway, account, limiter, logs, templates, users, rules);
 
     private BotUser user;
     private ResponseRule rule;
@@ -54,6 +56,9 @@ class ApplyServiceTest {
         rule = new ResponseRule(1L, "java");
         ReflectionTestUtils.setField(rule, "id", 7L);
         rule.setResume("hash", "Java dev");
+        rule.setKeywords("java"); rule.setEnabled(true);
+        when(users.findById(1L)).thenReturn(Optional.of(user));
+        when(rules.findByIdAndUserId(7L, 1L)).thenReturn(Optional.of(rule));
         when(account.cookies(1L)).thenReturn(Optional.of(COOKIES));
     }
 
@@ -64,12 +69,82 @@ class ApplyServiceTest {
     }
 
     @Test
+    void stoppedUserCannotSendByButton() {
+        when(limiter.stop(1L)).thenReturn(Optional.of(RateLimiter.Stop.CAPTCHA));
+        assertInstanceOf(ApplyResult.Captcha.class, service.apply(user, rule, VACANCY));
+        verifyNoInteractions(gateway);
+    }
+
+    @Test
+    void userDailyLimitBlocksAllRules() {
+        when(limiter.exhausted(1L)).thenReturn(true);
+        assertInstanceOf(ApplyResult.Deferred.class, service.apply(user, rule, VACANCY));
+        verifyNoInteractions(gateway);
+    }
+
+    @Test
+    void cooldownDoesNotSendAnotherRequest() {
+        when(limiter.coolingDown(1L)).thenReturn(true);
+        assertInstanceOf(ApplyResult.Deferred.class, service.apply(user, rule, VACANCY));
+        verifyNoInteractions(gateway);
+    }
+
+    @Test
+    void concurrentRulesShareTheLastDailySlotAndCooldown() throws Exception {
+        var realStore = new com.antonk404.hhbot.store.InMemoryKeyValueStore();
+        var realLimiter = new RateLimiter(realStore, logs, "Europe/Moscow");
+        var sent = new java.util.concurrent.atomic.AtomicLong(99);
+        when(logs.countByUserIdAndStateAndCreatedAtGreaterThanEqual(eq(1L), eq(ApplicationState.SENT), any()))
+                .thenAnswer(call -> sent.get());
+        when(logs.save(any())).thenAnswer(call -> { sent.incrementAndGet(); return call.getArgument(0); });
+        var another = new ResponseRule(1L, "second");
+        ReflectionTestUtils.setField(another, "id", 8L);
+        another.setKeywords("java"); another.setResume("hash", "Java"); another.setEnabled(true);
+        when(rules.findByIdAndUserId(8L, 1L)).thenReturn(Optional.of(another));
+        when(gateway.apply(any(), any(), any(), any())).thenReturn(new ApplyResult.Sent());
+        var realService = new ApplyService(gateway, account, realLimiter, logs, templates, users, rules);
+        try (var workers = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var jobs = new java.util.ArrayList<java.util.concurrent.Future<ApplyResult>>();
+            for (int i = 0; i < 30; i++) {
+                var selected = i % 2 == 0 ? rule : another;
+                jobs.add(workers.submit(() -> realService.apply(user, selected, VACANCY)));
+            }
+            int successes = 0;
+            for (var job : jobs) if (job.get() instanceof ApplyResult.Sent) successes++;
+            assertEquals(1, successes);
+        }
+        assertEquals(100, sent.get());
+        verify(gateway).apply(any(), any(), any(), any());
+    }
+
+    @Test
+    void disabledRuleAndFreshPausePreventRequests() {
+        rule.setEnabled(false);
+        assertInstanceOf(ApplyResult.Deferred.class, service.apply(user, rule, VACANCY));
+        rule.setEnabled(true); user.setPaused(true);
+        assertInstanceOf(ApplyResult.Deferred.class, service.apply(user, rule, VACANCY));
+        verifyNoInteractions(gateway);
+    }
+
+    @Test
+    void automaticSendRejectsModeAndFilterEditsAfterSearch() {
+        rule.setMode(com.antonk404.hhbot.domain.RuleMode.AUTO);
+        String expected = VacancyScanner.fingerprint(rule);
+        rule.setMode(com.antonk404.hhbot.domain.RuleMode.CONFIRM);
+        assertInstanceOf(ApplyResult.Deferred.class, service.applyAutomatically(user, rule, VACANCY, expected));
+        rule.setMode(com.antonk404.hhbot.domain.RuleMode.AUTO);
+        rule.setKeywords("kotlin");
+        assertInstanceOf(ApplyResult.Deferred.class, service.applyAutomatically(user, rule, VACANCY, expected));
+        verifyNoInteractions(gateway);
+    }
+
+    @Test
     void sentIsCountedAndLogged() {
         when(gateway.apply(COOKIES, "42", "hash", "")).thenReturn(new ApplyResult.Sent());
 
         assertInstanceOf(ApplyResult.Sent.class, service.apply(user, rule, VACANCY));
 
-        verify(limiter).recordSent(rule);
+        verify(limiter).recordAttempt(1L);
         assertEquals(ApplicationState.SENT, savedLog().getState());
     }
 
@@ -125,7 +200,7 @@ class ApplyServiceTest {
         service.apply(user, rule, VACANCY);
         verify(limiter).stopUntilTomorrow(1L, RateLimiter.Stop.HH_LIMIT);
 
-        verify(limiter, never()).recordSent(any());
+
         verify(logs, never()).save(any());
     }
 

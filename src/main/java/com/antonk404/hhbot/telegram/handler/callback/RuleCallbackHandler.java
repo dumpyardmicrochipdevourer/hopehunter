@@ -113,9 +113,6 @@ public class RuleCallbackHandler implements CallbackHandler {
                     "<b>Номер региона hh</b>\n\nиз адреса поиска: <code>area=88</code>");
             case "salx" -> ask(press, rule, Step.RULE_SALARY, RuleScreens.SEARCH,
                     "<b>Зарплата от</b>, число");
-            case "limx" -> ask(press, rule, Step.RULE_LIMIT, RuleScreens.HOW,
-                    "<b>Лимит в день</b>, 1–" + ResponseRule.MAX_DAILY_LIMIT);
-
             case "area" -> {
                 if (arg.isEmpty()) {
                     menu.edit(press, screens.area(rule));
@@ -144,15 +141,6 @@ public class RuleCallbackHandler implements CallbackHandler {
                     int amount = parseLong(arg).orElse(0L).intValue();
                     rule.setSalaryFrom(amount <= 0 ? null : amount);
                     save(press, rule, screens.search(rule));
-                }
-            }
-            case "lim" -> {
-                if (arg.isEmpty()) {
-                    menu.edit(press, screens.limit(rule));
-                } else {
-                    // Потолок тот же, что при вводе руками: data приходит от клиента.
-                    rule.setDailyLimit((int) Math.clamp(parseLong(arg).orElse(30L), 1L, (long) ResponseRule.MAX_DAILY_LIMIT));
-                    save(press, rule, screens.how(rule));
                 }
             }
             case "remote" -> {

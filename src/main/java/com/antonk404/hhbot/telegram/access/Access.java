@@ -1,7 +1,7 @@
 package com.antonk404.hhbot.telegram.access;
 
 import com.antonk404.hhbot.domain.BotUser;
-import com.antonk404.hhbot.service.WhitelistService;
+import com.antonk404.hhbot.service.UserService;
 import com.antonk404.hhbot.telegram.TelegramReplies;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
@@ -15,17 +15,18 @@ import java.util.Optional;
 @Component
 public class Access {
 
-    private final WhitelistService whitelistService;
+    private final UserService userService;
     private final TelegramReplies replies;
     private final BotContact botContact;
 
-    public Access(WhitelistService whitelistService, TelegramReplies replies, BotContact botContact) {
+    public Access(UserService userService, TelegramReplies replies, BotContact botContact) {
         this.botContact = botContact;
-        this.whitelistService = whitelistService;
+        this.userService = userService;
         this.replies = replies;
     }
 
     public Optional<BotUser> user(Message message) {
+        if (message.getFrom() == null || !message.getFrom().getId().equals(message.getChatId())) return Optional.empty();
         return resolve(message.getFrom(), message.getChatId());
     }
 
@@ -41,7 +42,7 @@ public class Access {
      */
     public Optional<Press> press(CallbackQuery query) {
         MaybeInaccessibleMessage message = query.getMessage();
-        if (message == null) {
+        if (message == null || query.getFrom() == null || !query.getFrom().getId().equals(message.getChatId())) {
             replies.answerCallback(query.getId(), "сообщение устарело, открой /menu");
             return Optional.empty();
         }
@@ -58,9 +59,9 @@ public class Access {
         if (from == null) {
             return Optional.empty();
         }
-        Optional<BotUser> user = whitelistService.resolve(from.getId(), from.getUserName());
+        Optional<BotUser> user = userService.resolve(from.getId(), from.getUserName());
         if (chatId != null) {
-            user.ifPresent(found -> whitelistService.bind(found, from.getId(), chatId));
+            user.ifPresent(found -> userService.bind(found, from.getId(), chatId));
         }
         return user;
     }

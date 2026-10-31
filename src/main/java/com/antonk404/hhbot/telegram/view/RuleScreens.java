@@ -47,7 +47,6 @@ public class RuleScreens {
     /** Готовые пороги зарплаты: набрать «200000» с телефона дольше, чем нажать кнопку. */
     public static final List<Integer> SALARIES = List.of(100_000, 150_000, 200_000, 250_000, 300_000, 400_000);
 
-    public static final List<Integer> LIMITS = List.of(5, 10, 20, 30, 50);
 
     static {
         AREAS.put(1, "Москва");
@@ -100,7 +99,7 @@ public class RuleScreens {
         text.append('\n').append("✉️ ").append(Html.esc(letterName(rule))).append("\n\n");
 
         text.append(rule.getMode() == RuleMode.AUTO ? "⚡️ Откликаюсь сам" : "👀 Спрашиваю перед откликом");
-        text.append(" · сегодня ").append(rateLimiter.sentToday(rule)).append(" из ").append(rule.getDailyLimit());
+        text.append(" · сегодня ").append(rateLimiter.sentToday(rule));
         if (!rule.isReady()) {
             text.append("\n\n⚠️ Чтобы включить, нужны ключевые слова и резюме.");
         }
@@ -177,10 +176,9 @@ public class RuleScreens {
                 + (auto
                 ? "⚡️ <b>Сам</b>"
                 : "👀 <b>С подтверждением</b>")
-                + "\n\nЛимит: " + rule.getDailyLimit() + " в день";
+                + "\n\nДо 100 откликов в сутки суммарно по всем правилам. Пауза 60–120 секунд.";
         return new Screen(text, Kb.of()
                 .row(btn(auto ? "Переключить: спрашивать меня" : "Переключить: откликаться самому", Cb.rule(id, "mode")))
-                .row(field("Лимит в день", String.valueOf(rule.getDailyLimit()), Cb.rule(id, "lim")))
                 .row(back(id))
                 .build());
     }
@@ -222,18 +220,7 @@ public class RuleScreens {
                 .build());
     }
 
-    public Screen limit(ResponseRule rule) {
-        Long id = rule.getId();
-        return new Screen("<b>Лимит откликов в день</b>\n\nСейчас: " + rule.getDailyLimit() + ".", Kb.of()
-                .row(LIMITS.stream()
-                        .map(limit -> btn(String.valueOf(limit), Cb.rule(id, "lim:" + limit)))
-                        .toArray(InlineKeyboardButton[]::new))
-                .row(btn("Своё число…", Cb.rule(id, "limx")))
-                .row(btn("« Назад", Cb.rule(id, HOW)))
-                .build());
-    }
 
-    /** @param wizard выбор идёт в мастере создания - после него следующий шаг, а не возврат в настройки */
     public Screen resumes(ResponseRule rule, List<HhResume> resumes, boolean wizard) {
         Long id = rule.getId();
         Kb keyboard = Kb.of();

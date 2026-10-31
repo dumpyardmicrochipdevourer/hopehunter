@@ -1,108 +1,62 @@
 package com.antonk404.hhbot.service.util;
 
-import com.antonk404.hhbot.domain.ResponseRule;
+import com.antonk404.hhbot.domain.ApplicationState;
+import com.antonk404.hhbot.domain.repo.ApplicationLogRepository;
 import com.antonk404.hhbot.store.InMemoryKeyValueStore;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
-
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
 class RateLimiterTest {
-
     private static final ZoneId MOSCOW = ZoneId.of("Europe/Moscow");
-
     private final InMemoryKeyValueStore store = new InMemoryKeyValueStore();
-
-    private RateLimiter at(String moscowTime) {
-        Instant instant = java.time.LocalDateTime.parse(moscowTime).atZone(MOSCOW).toInstant();
-        return new RateLimiter(store, Clock.fixed(instant, MOSCOW), MOSCOW, 9, 21);
+    private final ApplicationLogRepository logs = mock(ApplicationLogRepository.class);
+    private RateLimiter at(String time) {
+        return new RateLimiter(store, logs, Clock.fixed(LocalDateTime.parse(time).atZone(MOSCOW).toInstant(), MOSCOW), MOSCOW);
     }
-
-    private static ResponseRule rule(long id, int limit) {
-        ResponseRule rule = new ResponseRule(1L, "java");
-        ReflectionTestUtils.setField(rule, "id", id);
-        rule.setDailyLimit(limit);
-        return rule;
+    @Test void oneHundredSuccessfulResponsesForTheWholeUser() {
+        var limiter = at("2026-10-03T02:00:00");
+        when(logs.countByUserIdAndStateAndCreatedAtGreaterThanEqual(eq(1L), eq(ApplicationState.SENT), any()))
+                .thenReturn(99L, 100L);
+        assertFalse(limiter.exhausted(1L));
+        assertTrue(limiter.exhausted(1L));
+        assertFalse(limiter.exhausted(2L));
+        verify(logs, times(2)).countByUserIdAndStateAndCreatedAtGreaterThanEqual(
+                1L, ApplicationState.SENT, Instant.parse("2026-10-02T21:00:00Z"));
     }
-
-    @Test
-    void exhaustedOnceLimitIsReached() {
-        RateLimiter limiter = at("2026-10-03T12:00:00");
-        ResponseRule rule = rule(7, 2);
-
-        assertFalse(limiter.exhausted(rule));
-        limiter.recordSent(rule);
-        assertFalse(limiter.exhausted(rule));
-        limiter.recordSent(rule);
-        assertTrue(limiter.exhausted(rule));
-        assertEquals(2, limiter.sentToday(rule));
+    @Test void midnightChangesTheBudgetQueryAndRestartKeepsTheSameCount() {
+        when(logs.countByUserIdAndStateAndCreatedAtGreaterThanEqual(1L, ApplicationState.SENT,
+                Instant.parse("2026-10-02T21:00:00Z"))).thenReturn(100L);
+        assertTrue(at("2026-10-03T23:59:59").exhausted(1L));
+        assertTrue(at("2026-10-03T23:59:59").exhausted(1L));
+        assertFalse(at("2026-10-04T00:00:00").exhausted(1L));
     }
-
-    @Test
-    void counterIsPerRuleAndPerDay() {
-        ResponseRule rule = rule(7, 1);
-        at("2026-10-03T12:00:00").recordSent(rule);
-
-        assertFalse(at("2026-10-03T12:00:00").exhausted(rule(8, 1)));
-        assertFalse(at("2026-10-04T09:00:00").exhausted(rule));
+    @Test void intervalIsPerUserBetweenSixtyAndOneHundredTwentySecondsAndSurvivesRestart() {
+        var limiter = at("2026-10-03T12:00:00");
+        for (int i = 0; i < 100; i++) {
+            limiter.recordAttempt(1L);
+            long seconds = store.ttls.get("cooldown:1").toSeconds();
+            assertTrue(seconds >= 60 && seconds <= 120);
+        }
+        assertTrue(at("2026-10-03T12:00:00").coolingDown(1L));
+        assertFalse(limiter.coolingDown(2L));
     }
-
-    @Test
-    void workingHoursAreHalfOpen() {
-        assertFalse(at("2026-10-03T08:59:00").withinWorkingHours());
-        assertTrue(at("2026-10-03T09:00:00").withinWorkingHours());
-        assertTrue(at("2026-10-03T20:59:00").withinWorkingHours());
-        assertFalse(at("2026-10-03T21:00:00").withinWorkingHours());
-    }
-
-    @Test
-    void stopLastsExactlyUntilLocalMidnight() {
-        RateLimiter limiter = at("2026-10-03T20:30:00");
-
-        assertFalse(limiter.isStopped(5L));
+    @Test void stopLastsUntilLocalMidnightAndKeepsReason() {
+        var limiter = at("2026-10-03T20:30:00");
         limiter.stopUntilTomorrow(5L, RateLimiter.Stop.CAPTCHA);
-
-        assertTrue(limiter.isStopped(5L));
-        assertFalse(limiter.isStopped(6L));
         assertEquals(Duration.ofMinutes(210), store.ttls.get("stop:5"));
-    }
-
-    /** Капчу человек снимает сам, суточный лимит hh - нет, поэтому причина стопа переживает redis. */
-    @Test
-    void stopRemembersWhyItWasSet() {
-        RateLimiter limiter = at("2026-10-03T20:30:00");
-
-        limiter.stopUntilTomorrow(5L, RateLimiter.Stop.CAPTCHA);
         assertEquals(Optional.of(RateLimiter.Stop.CAPTCHA), limiter.stop(5L));
-
-        limiter.stopUntilTomorrow(5L, RateLimiter.Stop.HH_LIMIT);
-        assertEquals(Optional.of(RateLimiter.Stop.HH_LIMIT), limiter.stop(5L));
-
+        assertFalse(limiter.isStopped(6L));
         limiter.clearStop(5L);
-        assertEquals(Optional.empty(), limiter.stop(5L));
-    }
-
-    /** Стоп, записанный прошлой версией бота: причину не разобрать, считаем строгий случай. */
-    @Test
-    void unknownStopReasonCountsAsHhLimit() {
-        RateLimiter limiter = at("2026-10-03T20:30:00");
-        store.values.put("stop:5", "капча");
-
+        assertFalse(limiter.isStopped(5L));
+        store.values.put("stop:5", "legacy");
         assertEquals(Optional.of(RateLimiter.Stop.HH_LIMIT), limiter.stop(5L));
     }
-
-    @Test
-    void recheckIsAllowedOnceAMinute() {
-        RateLimiter limiter = at("2026-10-03T20:30:00");
-
+    @Test void recheckIsOnceAMinute() {
+        var limiter = at("2026-10-03T20:30:00");
         assertTrue(limiter.allowRecheck(5L));
         assertFalse(limiter.allowRecheck(5L));
         assertTrue(limiter.allowRecheck(6L));

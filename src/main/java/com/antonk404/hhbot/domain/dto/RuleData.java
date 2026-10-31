@@ -13,9 +13,8 @@ import java.util.List;
  * @param skills           что должно быть в описании вакансии; null - не важно
  * @param workFormats      null или пусто - любой формат работы
  * @param areaName         название региона из подсказки; сервер его только хранит и показывает
- * @param dailyLimit       null - значение по умолчанию
- * @param intervalMinutes  null - значение по умолчанию
  */
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties({"dailyLimit", "intervalMinutes"})
 public record RuleData(
         String name,
         String keywords,
@@ -35,7 +34,5 @@ public record RuleData(
         String resumeHash,
         Long letterTemplateId,
         RuleMode mode,
-        Integer dailyLimit,
-        Integer intervalMinutes,
         Boolean skipWithTest) {
 }

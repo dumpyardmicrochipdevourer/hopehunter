@@ -7,6 +7,7 @@ import com.antonk404.hhbot.domain.dto.HhResume;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
 import com.antonk404.hhbot.domain.dto.SearchQuery;
 import com.antonk404.hhbot.hh.exceptions.HhException;
+import com.antonk404.hhbot.hh.exceptions.HhCaptchaException;
 import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -305,7 +306,10 @@ public class HhWebGateway implements HhGateway {
      * останавливаемся и отдаём ответ как есть.
      */
     private HhHttp.Response getPage(String url, Map<String, String> headers) {
-        return follow(url, headers).response();
+        Page page = follow(url, headers);
+        if (page.url().toLowerCase(Locale.ROOT).contains("captcha") || page.response().status() == 403)
+            throw new HhCaptchaException();
+        return page.response();
     }
 
     /** Ответ вместе с адресом, на котором он получен: после редиректов это уже не тот url, что просили. */

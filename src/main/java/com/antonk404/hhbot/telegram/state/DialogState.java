@@ -26,7 +26,6 @@ public class DialogState {
         RULE_BLACKLIST,
         RULE_SALARY,
         RULE_AREA,
-        RULE_LIMIT,
         LETTER_NEW_NAME,
         LETTER_NEW_BODY,
         LETTER_BODY

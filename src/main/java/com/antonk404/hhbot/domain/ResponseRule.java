@@ -25,14 +25,6 @@ import java.util.List;
 @Table(name = "response_rule")
 public class ResponseRule {
 
-    public static final int DEFAULT_DAILY_LIMIT = 30;
-    /** Выше смысла нет: сам hh принимает от аккаунта не больше 200 откликов в сутки. */
-    public static final int MAX_DAILY_LIMIT = 200;
-    public static final int DEFAULT_INTERVAL_MINUTES = 15;
-
-    /** Как часто правило можно проверять. Меньше 15 минут нет: чаще сканер всё равно не ходит. */
-    public static final List<Integer> INTERVALS_MINUTES = List.of(15, 30, 60, 180);
-
     /** Форматы работы, как их называет поиск hh. */
     public static final List<String> WORK_FORMATS = List.of("REMOTE", "HYBRID", "ON_SITE", "FIELD_WORK");
 
@@ -153,11 +145,11 @@ public class ResponseRule {
     private RuleMode mode = RuleMode.CONFIRM;
 
     @Column(name = "daily_limit", nullable = false)
-    private int dailyLimit = DEFAULT_DAILY_LIMIT;
+    private int legacyDailyLimit = 30;
 
     @ColumnDefault("15")
     @Column(name = "interval_minutes", nullable = false)
-    private int intervalMinutes = DEFAULT_INTERVAL_MINUTES;
+    private int legacyIntervalMinutes = 15;
 
     /**
      * Молча пропускать вакансии с тестом работодателя. Выключено - бот присылает их ссылкой,
@@ -248,13 +240,6 @@ public class ResponseRule {
         this.onlyWithSalary = onlyWithSalary;
     }
 
-    public int getIntervalMinutes() {
-        return intervalMinutes;
-    }
-
-    public void setIntervalMinutes(int intervalMinutes) {
-        this.intervalMinutes = intervalMinutes;
-    }
 
     public boolean isSkipWithTest() {
         return skipWithTest;
@@ -380,13 +365,6 @@ public class ResponseRule {
         this.mode = mode;
     }
 
-    public int getDailyLimit() {
-        return dailyLimit;
-    }
-
-    public void setDailyLimit(int dailyLimit) {
-        this.dailyLimit = dailyLimit;
-    }
 
     public boolean isEnabled() {
         return enabled;

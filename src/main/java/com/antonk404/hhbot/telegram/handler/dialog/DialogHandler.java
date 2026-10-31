@@ -226,7 +226,6 @@ public class DialogHandler {
         // Куда вернуться: в ту группу настроек, из которой человек пришёл.
         String group = switch (dialog.step()) {
             case RULE_NAME -> "show";
-            case RULE_LIMIT -> RuleScreens.HOW;
             default -> RuleScreens.SEARCH;
         };
         String back = Cb.rule(id, group);
@@ -270,13 +269,7 @@ public class DialogHandler {
                 }
                 rule.setArea(area.get(), null);
             }
-            case RULE_LIMIT -> {
-                Optional<Integer> limit = number(text, 1, ResponseRule.MAX_DAILY_LIMIT);
-                if (limit.isEmpty()) {
-                    return MenuScreens.retry("Нужно число от 1 до " + ResponseRule.MAX_DAILY_LIMIT + ".", back);
-                }
-                rule.setDailyLimit(limit.get());
-            }
+
             default -> throw new IllegalStateException("not a rule step: " + dialog.step());
         }
         responseRuleRepository.save(rule);

@@ -30,8 +30,6 @@ public record RuleView(
         String resumeTitle,
         Long letterTemplateId,
         RuleMode mode,
-        int dailyLimit,
-        int intervalMinutes,
         boolean skipWithTest,
         boolean enabled,
         boolean ready,
@@ -43,7 +41,7 @@ public record RuleView(
                 rule.isOnlyWithSalary(), rule.getExperiences(),
                 rule.getWorkFormats(), rule.getEmploymentForms(), rule.getLabels(), rule.getPeriodDays(),
                 rule.getCompanyBlacklist(), rule.getResumeHash(), rule.getResumeTitle(),
-                rule.getLetterTemplateId(), rule.getMode(), rule.getDailyLimit(), rule.getIntervalMinutes(),
+                rule.getLetterTemplateId(), rule.getMode(),
                 rule.isSkipWithTest(), rule.isEnabled(),
                 rule.isReady(), sentToday);
     }

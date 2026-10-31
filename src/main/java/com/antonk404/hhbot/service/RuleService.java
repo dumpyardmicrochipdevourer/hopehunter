@@ -131,18 +131,6 @@ public class RuleService {
         rule.setOnlyWithSalary(data.onlyWithSalary() == null || data.onlyWithSalary());
         rule.setSkipWithTest(data.skipWithTest() == null || data.skipWithTest());
 
-        int interval = data.intervalMinutes() == null ? ResponseRule.DEFAULT_INTERVAL_MINUTES : data.intervalMinutes();
-        if (!ResponseRule.INTERVALS_MINUTES.contains(interval)) {
-            throw new ValidationException("intervalMinutes", "Интервал - один из: " + ResponseRule.INTERVALS_MINUTES + " минут.");
-        }
-        rule.setIntervalMinutes(interval);
-
-        int limit = data.dailyLimit() == null ? ResponseRule.DEFAULT_DAILY_LIMIT : data.dailyLimit();
-        if (limit < 1 || limit > ResponseRule.MAX_DAILY_LIMIT) {
-            throw new ValidationException("dailyLimit", "Лимит - от 1 до " + ResponseRule.MAX_DAILY_LIMIT + " откликов в день.");
-        }
-        rule.setDailyLimit(limit);
-
         if (data.letterTemplateId() != null
                 && letterTemplateRepository.findByIdAndUserId(data.letterTemplateId(), user.getId()).isEmpty()) {
             throw new ValidationException("letterTemplateId", "Этого письма уже нет.");

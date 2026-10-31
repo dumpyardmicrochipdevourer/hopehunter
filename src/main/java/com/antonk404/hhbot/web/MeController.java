@@ -6,7 +6,7 @@ import com.antonk404.hhbot.domain.dto.StatsView;
 import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
 import com.antonk404.hhbot.service.CaptchaService;
 import com.antonk404.hhbot.service.DashboardService;
-import com.antonk404.hhbot.service.WhitelistService;
+import com.antonk404.hhbot.service.UserService;
 import com.antonk404.hhbot.service.exceptions.ValidationException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,13 +27,13 @@ public class MeController {
     }
 
     private final DashboardService dashboardService;
-    private final WhitelistService whitelistService;
+    private final UserService userService;
     private final CaptchaService captchaService;
 
     public MeController(
-            DashboardService dashboardService, WhitelistService whitelistService, CaptchaService captchaService) {
+            DashboardService dashboardService, UserService userService, CaptchaService captchaService) {
         this.dashboardService = dashboardService;
-        this.whitelistService = whitelistService;
+        this.userService = userService;
         this.captchaService = captchaService;
     }
 
@@ -44,14 +44,14 @@ public class MeController {
 
     @PutMapping("/me/pause")
     public MeView pause(@RequestAttribute(AuthInterceptor.USER) BotUser user, @RequestBody PauseRequest request) {
-        whitelistService.setPaused(user, request.paused());
+        userService.setPaused(user, request.paused());
         return dashboardService.me(user);
     }
 
     @PutMapping("/me/notifications")
     public MeView notifications(@RequestAttribute(AuthInterceptor.USER) BotUser user,
                                 @RequestBody NotificationsRequest request) {
-        whitelistService.setNotifyApplied(user, request.applied());
+        userService.setNotifyApplied(user, request.applied());
         return dashboardService.me(user);
     }
 

@@ -101,7 +101,7 @@ class ScreensTest {
         for (Screen screen : List.of(
                 ruleScreens.list(user), ruleScreens.rule(rule), ruleScreens.search(rule), ruleScreens.reply(rule),
                 ruleScreens.how(rule), ruleScreens.area(rule), ruleScreens.experience(rule), ruleScreens.salary(rule),
-                ruleScreens.limit(rule), ruleScreens.resumes(rule, resumes, true), ruleScreens.resumes(rule, resumes, false),
+                ruleScreens.resumes(rule, resumes, true), ruleScreens.resumes(rule, resumes, false),
                 ruleScreens.letters(user, rule), ruleScreens.wizardMode(rule), ruleScreens.wizardDone(rule),
                 ruleScreens.delete(rule), ruleScreens.preview(rule, List.of(vacancy, vacancy), 8),
                 VacancyView.card(NASTY, vacancy, NASTY))) {

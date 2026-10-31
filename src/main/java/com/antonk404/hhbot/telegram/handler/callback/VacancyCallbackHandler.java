@@ -120,6 +120,7 @@ public class VacancyCallbackHandler implements CallbackHandler {
                 replies.answerCallback(press.queryId(), null);
                 vacancyPresenter.sessionExpired(user);
             }
+            case ApplyResult.Deferred deferred -> replies.alert(press.queryId(), deferred.reason());
             case ApplyResult.Failed failed ->
                     replies.alert(press.queryId(), "Не получилось: " + failed.reason() + ". Попробуй ещё раз чуть позже.");
         }

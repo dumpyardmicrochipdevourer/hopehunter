@@ -18,6 +18,10 @@ import java.time.Instant;
  */
 @Entity
 @Table(name = "application_log",
+        indexes = {
+                @jakarta.persistence.Index(name = "application_log_user_day", columnList = "user_id,state,created_at"),
+                @jakarta.persistence.Index(name = "application_log_rule_day", columnList = "rule_id,state,created_at")
+        },
         uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "vacancy_id"}))
 public class ApplicationLog {
 

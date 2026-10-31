@@ -47,7 +47,7 @@ public class DashboardService {
     public MeView me(BotUser user) {
         List<ResponseRule> rules = responseRuleRepository.findByUserIdOrderByIdAsc(user.getId());
         int enabled = (int) rules.stream().filter(ResponseRule::isEnabled).count();
-        int dailyLimit = rules.stream().filter(ResponseRule::isEnabled).mapToInt(ResponseRule::getDailyLimit).sum();
+        int dailyLimit = RateLimiter.DAILY_LIMIT;
         Optional<Stop> stop = rateLimiter.stop(user.getId());
         return new MeView(user.getUsername(), user.isPaused(), stop.isPresent(),
                 stop.map(Stop::name).orElse(null),

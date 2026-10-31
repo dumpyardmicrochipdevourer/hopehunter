@@ -6,6 +6,8 @@ package com.antonk404.hhbot.domain.dto;
  */
 public sealed interface ApplyResult {
 
+    record Deferred(String reason) implements ApplyResult {}
+
     record Sent() implements ApplyResult {
     }
 

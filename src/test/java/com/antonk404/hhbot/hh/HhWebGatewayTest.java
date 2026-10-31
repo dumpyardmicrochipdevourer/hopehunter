@@ -94,6 +94,16 @@ class HhWebGatewayTest {
     }
 
     @Test
+    void captchaRedirectAnd403OnSearchAreNotExpiredSessions() {
+        FakeHttp redirect = new FakeHttp(new HhHttp.Response(302, "", "/account/captcha"), ok("challenge"));
+        assertThrows(com.antonk404.hhbot.hh.exceptions.HhCaptchaException.class,
+                () -> gateway(redirect).search(COOKIES, SearchQuery.of("java"), 0));
+        FakeHttp forbidden = new FakeHttp(new HhHttp.Response(403, "challenge", null));
+        assertThrows(com.antonk404.hhbot.hh.exceptions.HhCaptchaException.class,
+                () -> gateway(forbidden).search(COOKIES, SearchQuery.of("java"), 0));
+    }
+
+    @Test
     void buildsSearchUrlFromQuery() {
         assertEquals("text=java+developer&search_field=name&area=1&salary=200000&only_with_salary=true"
                         + "&experience=between1And3&work_format=REMOTE&order_by=publication_time&page=2",

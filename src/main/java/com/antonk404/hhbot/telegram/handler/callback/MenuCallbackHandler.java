@@ -2,7 +2,7 @@ package com.antonk404.hhbot.telegram.handler.callback;
 
 import com.antonk404.hhbot.hh.exceptions.HhException;
 import com.antonk404.hhbot.service.CaptchaService;
-import com.antonk404.hhbot.service.WhitelistService;
+import com.antonk404.hhbot.service.UserService;
 import com.antonk404.hhbot.telegram.access.Access;
 import com.antonk404.hhbot.telegram.state.DialogState;
 import com.antonk404.hhbot.telegram.state.MenuMessage;
@@ -16,7 +16,7 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 public class MenuCallbackHandler implements CallbackHandler {
 
     private final Access access;
-    private final WhitelistService whitelistService;
+    private final UserService userService;
     private final CaptchaService captchaService;
     private final DialogState dialogState;
     private final MenuMessage menu;
@@ -24,13 +24,13 @@ public class MenuCallbackHandler implements CallbackHandler {
 
     public MenuCallbackHandler(
             Access access,
-            WhitelistService whitelistService,
+            UserService userService,
             CaptchaService captchaService,
             DialogState dialogState,
             MenuMessage menu,
             MenuScreens screens) {
         this.access = access;
-        this.whitelistService = whitelistService;
+        this.userService = userService;
         this.captchaService = captchaService;
         this.dialogState = dialogState;
         this.menu = menu;
@@ -50,7 +50,7 @@ public class MenuCallbackHandler implements CallbackHandler {
             switch (press.data()) {
                 case Cb.STATS -> menu.edit(press, screens.stats(press.user()));
                 case Cb.PAUSE -> {
-                    whitelistService.setPaused(press.user(), !press.user().isPaused());
+                    userService.setPaused(press.user(), !press.user().isPaused());
                     menu.edit(press, screens.home(press.user()),
                             press.user().isPaused() ? "Поставил на паузу" : "Снова работаю");
                 }
