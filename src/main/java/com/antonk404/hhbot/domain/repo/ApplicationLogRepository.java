@@ -9,6 +9,10 @@ import java.util.List;
 
 public interface ApplicationLogRepository extends JpaRepository<ApplicationLog, Long> {
 
+    long countByUserIdAndStateAndCreatedAtGreaterThanEqual(Long userId, ApplicationState state, Instant since);
+
+    long countByRuleIdAndStateAndCreatedAtGreaterThanEqual(Long ruleId, ApplicationState state, Instant since);
+
     boolean existsByUserIdAndVacancyId(Long userId, String vacancyId);
 
     long countByUserIdAndState(Long userId, ApplicationState state);

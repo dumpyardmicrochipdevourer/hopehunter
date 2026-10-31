@@ -10,9 +10,9 @@ import java.util.Set;
 /** Redis для тестов: те же операции, без ttl - тесты его не ждут, а только записывают. */
 public class InMemoryKeyValueStore implements KeyValueStore {
 
-    public final Map<String, String> values = new HashMap<>();
-    public final Map<String, Set<String>> sets = new HashMap<>();
-    public final Map<String, Duration> ttls = new HashMap<>();
+    public final Map<String, String> values = new java.util.concurrent.ConcurrentHashMap<>();
+    public final Map<String, Set<String>> sets = new java.util.concurrent.ConcurrentHashMap<>();
+    public final Map<String, Duration> ttls = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Override
     public Optional<String> get(String key) {
@@ -32,9 +32,13 @@ public class InMemoryKeyValueStore implements KeyValueStore {
     }
 
     @Override
-    public long increment(String key, Duration ttl) {
+    public synchronized long increment(String key, Duration ttl) {
         long next = Long.parseLong(values.getOrDefault(key, "0")) + 1;
         values.put(key, String.valueOf(next));
+        // Как в redis: ttl ставится при создании ключа и не продлевается следующими инкрементами.
+        if (next == 1) {
+            ttls.put(key, ttl);
+        }
         return next;
     }
 

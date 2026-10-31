@@ -9,12 +9,7 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
-/**
- * Человек, которому разрешён бот. Строка в таблице и есть вайтлист: нет строки - нет доступа.
- *
- * <p>Заводится по username, потому что админ знает только его. {@code telegramId} привязывается
- * при первом сообщении и дальше служит ключом: тег в Telegram можно сменить в любой момент, id - нет.
- */
+/** Telegram user; legacy unbound profiles are retained without automatic reassignment. */
 @Entity
 @Table(name = "bot_user")
 public class BotUser {
@@ -40,6 +35,12 @@ public class BotUser {
     @Column(nullable = false)
     private boolean paused = false;
 
+    /**
+     * Присылать ли сообщение «Откликнулся» после каждого автоотклика
+     */
+    @Column(name = "notify_applied", nullable = false, columnDefinition = "boolean not null default true")
+    private boolean notifyApplied = true;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -55,8 +56,13 @@ public class BotUser {
         return id;
     }
 
+    @Column(name = "telegram_username", length = 32)
+    private String telegramUsername;
+
+    public String getTelegramUsername() { return telegramUsername; }
+    public void setTelegramUsername(String value) { telegramUsername = value; }
     public String getUsername() {
-        return username;
+        return telegramId != null ? telegramUsername : username;
     }
 
     public Long getTelegramId() {
@@ -89,5 +95,13 @@ public class BotUser {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public boolean isNotifyApplied() {
+        return notifyApplied;
+    }
+
+    public void setNotifyApplied(boolean notifyApplied) {
+        this.notifyApplied = notifyApplied;
     }
 }

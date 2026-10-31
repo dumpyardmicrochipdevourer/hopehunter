@@ -20,7 +20,7 @@ public record RuleView(
         String areaName,
         Integer salaryFrom,
         boolean onlyWithSalary,
-        String experience,
+        List<String> experiences,
         List<String> workFormats,
         List<String> employmentForms,
         List<String> labels,
@@ -30,8 +30,6 @@ public record RuleView(
         String resumeTitle,
         Long letterTemplateId,
         RuleMode mode,
-        int dailyLimit,
-        int intervalMinutes,
         boolean skipWithTest,
         boolean enabled,
         boolean ready,
@@ -40,10 +38,10 @@ public record RuleView(
     public static RuleView of(ResponseRule rule, int sentToday) {
         return new RuleView(rule.getId(), rule.getName(), rule.getKeywords(), rule.getSkills(), rule.getMinusWords(),
                 rule.isTitleOnly(), rule.getAreaId(), rule.getAreaName(), rule.getSalaryFrom(),
-                rule.isOnlyWithSalary(), rule.getExperience(),
+                rule.isOnlyWithSalary(), rule.getExperiences(),
                 rule.getWorkFormats(), rule.getEmploymentForms(), rule.getLabels(), rule.getPeriodDays(),
                 rule.getCompanyBlacklist(), rule.getResumeHash(), rule.getResumeTitle(),
-                rule.getLetterTemplateId(), rule.getMode(), rule.getDailyLimit(), rule.getIntervalMinutes(),
+                rule.getLetterTemplateId(), rule.getMode(),
                 rule.isSkipWithTest(), rule.isEnabled(),
                 rule.isReady(), sentToday);
     }

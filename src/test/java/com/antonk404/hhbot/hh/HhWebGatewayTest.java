@@ -94,21 +94,40 @@ class HhWebGatewayTest {
     }
 
     @Test
+    void captchaRedirectAnd403OnSearchAreNotExpiredSessions() {
+        FakeHttp redirect = new FakeHttp(new HhHttp.Response(302, "", "/account/captcha"), ok("challenge"));
+        assertThrows(com.antonk404.hhbot.hh.exceptions.HhCaptchaException.class,
+                () -> gateway(redirect).search(COOKIES, SearchQuery.of("java"), 0));
+        FakeHttp forbidden = new FakeHttp(new HhHttp.Response(403, "challenge", null));
+        assertThrows(com.antonk404.hhbot.hh.exceptions.HhCaptchaException.class,
+                () -> gateway(forbidden).search(COOKIES, SearchQuery.of("java"), 0));
+    }
+
+    @Test
     void buildsSearchUrlFromQuery() {
         assertEquals("text=java+developer&search_field=name&area=1&salary=200000&only_with_salary=true"
                         + "&experience=between1And3&work_format=REMOTE&order_by=publication_time&page=2",
                 HhWebGateway.searchParams(new SearchQuery("java developer", true, null, 1, 200000, true,
-                        "between1And3", List.of("REMOTE"), List.of(), List.of(), null), 2));
+                        List.of("between1And3"), List.of("REMOTE"), List.of(), List.of(), null), 2));
         assertEquals("text=java&order_by=publication_time&page=0",
-                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, null, true, null,
+                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, null, true, List.of(),
                         List.of(), List.of(), List.of(), null), 0));
+    }
+
+    /** Несколько диапазонов опыта - повторяющийся параметр, как у формата работы. */
+    @Test
+    void experienceRangesRepeatTheParameter() {
+        assertEquals("text=java&experience=between1And3&experience=between3And6"
+                        + "&order_by=publication_time&page=0",
+                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, null, true,
+                        List.of("between1And3", "between3And6"), List.of(), List.of(), List.of(), null), 0));
     }
 
     /** Порог без «только с зарплатой»: hh покажет и вакансии, где зарплата не указана. */
     @Test
     void salaryThresholdCanKeepVacanciesWithoutSalary() {
         assertEquals("text=java&salary=200000&order_by=publication_time&page=0",
-                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, 200000, false, null,
+                HhWebGateway.searchParams(new SearchQuery("java", false, null, null, 200000, false, List.of(),
                         List.of(), List.of(), List.of(), null), 0));
     }
 
@@ -121,18 +140,41 @@ class HhWebGatewayTest {
         assertEquals("text=NAME%3A%28devops+OR+sre%29+AND+DESCRIPTION%3A%28kubernetes+OR+k8s%29"
                         + "&order_by=publication_time&page=0",
                 HhWebGateway.searchParams(new SearchQuery("devops OR sre", true, "kubernetes OR k8s", null, null,
-                        true, null, List.of(), List.of(), List.of(), null), 0));
+                        true, List.of(), List.of(), List.of(), List.of(), null), 0));
         assertEquals("text=%28devops%29+AND+DESCRIPTION%3A%28k8s%29&order_by=publication_time&page=0",
                 HhWebGateway.searchParams(new SearchQuery("devops", false, "k8s", null, null,
-                        true, null, List.of(), List.of(), List.of(), null), 0));
+                        true, List.of(), List.of(), List.of(), List.of(), null), 0));
     }
 
     @Test
     void multiValueFiltersRepeatTheParameter() {
         assertEquals("text=devops&search_field=name&work_format=REMOTE&work_format=HYBRID&employment_form=FULL"
                         + "&label=not_from_agency&label=accredited_it&search_period=7&order_by=publication_time&page=0",
-                HhWebGateway.searchParams(new SearchQuery("devops", true, " ", null, null, true, null,
+                HhWebGateway.searchParams(new SearchQuery("devops", true, " ", null, null, true, List.of(),
                         List.of("REMOTE", "HYBRID"), List.of("FULL"), List.of("not_from_agency", "accredited_it"), 7), 0));
+    }
+
+    /**
+     * Проверка после капчи: обычная страница, а не отклик. Капчу hh показывает своей страницей,
+     * поэтому важен адрес, на который нас привели, а не содержимое ответа.
+     */
+    @Test
+    void probeTellsFineFromCaptchaAndFromDeadSession() {
+        FakeHttp fine = new FakeHttp(ok("<html>мои отклики</html>"));
+        assertEquals(HhGateway.Probe.OK, gateway(fine).probe(COOKIES));
+        assertEquals("https://hh.ru/applicant/negotiations", fine.urls.getFirst());
+        assertEquals("hhtoken=tok; _xsrf=xs", fine.headers.get("Cookie"));
+
+        FakeHttp captcha = new FakeHttp(
+                new HhHttp.Response(302, "", "https://hh.ru/account/captcha?backurl=%2Fapplicant%2Fnegotiations"),
+                ok("<html>докажите, что вы человек</html>"));
+        assertEquals(HhGateway.Probe.CAPTCHA, gateway(captcha).probe(COOKIES));
+
+        FakeHttp forbidden = new FakeHttp(new HhHttp.Response(403, "", null));
+        assertEquals(HhGateway.Probe.CAPTCHA, gateway(forbidden).probe(COOKIES));
+
+        FakeHttp login = new FakeHttp(new HhHttp.Response(302, "", "/account/login?backurl=x"));
+        assertEquals(HhGateway.Probe.EXPIRED, gateway(login).probe(COOKIES));
     }
 
     /** Ответ - настоящий, снят с hh 2026-10-03 запросом «каз». */

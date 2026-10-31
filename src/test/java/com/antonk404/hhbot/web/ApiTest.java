@@ -2,12 +2,16 @@ package com.antonk404.hhbot.web;
 
 import com.antonk404.hhbot.domain.BotUser;
 import com.antonk404.hhbot.domain.RuleMode;
+import com.antonk404.hhbot.domain.dto.AccountView;
+import com.antonk404.hhbot.domain.dto.MeView;
 import com.antonk404.hhbot.domain.dto.RuleData;
 import com.antonk404.hhbot.domain.dto.RuleView;
 import com.antonk404.hhbot.hh.exceptions.HhException;
 import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
+import com.antonk404.hhbot.service.CaptchaService;
+import com.antonk404.hhbot.service.DashboardService;
 import com.antonk404.hhbot.service.RuleService;
-import com.antonk404.hhbot.service.WhitelistService;
+import com.antonk404.hhbot.service.UserService;
 import com.antonk404.hhbot.telegram.access.BotContact;
 import com.antonk404.hhbot.service.exceptions.NotFoundException;
 import com.antonk404.hhbot.service.exceptions.ValidationException;
@@ -40,7 +44,9 @@ class ApiTest {
     private static final String TOKEN = "123456:TEST-TOKEN";
 
     private final RuleService ruleService = mock(RuleService.class);
-    private final WhitelistService whitelistService = mock(WhitelistService.class);
+    private final UserService userService = mock(UserService.class);
+    private final DashboardService dashboardService = mock(DashboardService.class);
+    private final CaptchaService captchaService = mock(CaptchaService.class);
 
     private MockMvc mvc;
     private BotUser user;
@@ -50,20 +56,47 @@ class ApiTest {
     void setUp() {
         user = new BotUser("anton", "anton");
         ReflectionTestUtils.setField(user, "id", 1L);
-        when(whitelistService.resolve(42L, "anton")).thenReturn(Optional.of(user));
+        when(userService.resolve(42L, "anton")).thenReturn(Optional.of(user));
 
         InitDataValidator validator = new InitDataValidator(TOKEN, Duration.ofHours(24), Clock.systemUTC());
-        mvc = MockMvcBuilders.standaloneSetup(new RuleController(ruleService))
+        mvc = MockMvcBuilders.standaloneSetup(new RuleController(ruleService),
+                        new MeController(dashboardService, userService, captchaService))
                 .setControllerAdvice(new ApiExceptionHandler())
-                .addInterceptors(new AuthInterceptor(validator, whitelistService, new BotContact("@MicrochipDDDD")))
+                .addInterceptors(new AuthInterceptor(validator, userService, new BotContact()))
                 .build();
         auth = "tma " + InitDataValidatorTest.sign(TOKEN, Instant.now(), "{\"id\":42,\"username\":\"anton\"}");
     }
 
     private static RuleView view() {
-        return new RuleView(7L, "java", "java", "k8s", null, true, 1, "Москва", null, true, null,
+        return new RuleView(7L, "java", "java", "k8s", null, true, 1, "Москва", null, true, List.of(),
                 List.of("REMOTE", "HYBRID"), List.of(), List.of(), null, null,
-                "hash", "Java dev", null, RuleMode.CONFIRM, 30, 15, true, false, true, 0);
+                "hash", "Java dev", null, RuleMode.CONFIRM, true, false, true, 0);
+    }
+
+    private static MeView me(boolean stopped) {
+        return new MeView("anton", false, stopped, stopped ? "CAPTCHA" : null,
+                new AccountView("ACTIVE", "Антон", null), 1, 1, 0, 30, true);
+    }
+
+    /** Кнопка «капчу прошёл»: либо стоп снят, либо готовая фраза, почему нет. */
+    @Test
+    void passedCaptchaLiftsTheStopOrSaysWhyNot() throws Exception {
+        when(dashboardService.me(user)).thenReturn(me(false));
+        when(captchaService.recheck(user)).thenReturn(CaptchaService.Recheck.GONE);
+        mvc.perform(post("/api/me/captcha").header("Authorization", auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stopped").value(false))
+                .andExpect(jsonPath("$.stopReason").value((Object) null));
+
+        when(captchaService.recheck(user)).thenReturn(CaptchaService.Recheck.STILL_THERE);
+        mvc.perform(post("/api/me/captcha").header("Authorization", auth))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("validation"));
+
+        when(captchaService.recheck(user)).thenReturn(CaptchaService.Recheck.SESSION_EXPIRED);
+        mvc.perform(post("/api/me/captcha").header("Authorization", auth))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("hh_session_expired"));
     }
 
     @Test
@@ -78,13 +111,13 @@ class ApiTest {
     }
 
     @Test
-    void validSignatureOfSomeoneOutsideTheWhitelistIsForbidden() throws Exception {
+    void closedRegistrationRejectsUnknownIdentity() throws Exception {
         String stranger = "tma " + InitDataValidatorTest.sign(TOKEN, Instant.now(), "{\"id\":77,\"username\":\"x\"}");
 
         mvc.perform(get("/api/rules").header("Authorization", stranger))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error").value("forbidden"))
-                .andExpect(jsonPath("$.message").value("whitelist only. dm @microchipdddd"));
+                .andExpect(jsonPath("$.message").value("Регистрация пока закрыта."));
 
         verifyNoInteractions(ruleService);
     }
@@ -96,6 +129,8 @@ class ApiTest {
         mvc.perform(get("/api/rules").header("Authorization", auth))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(7))
+                .andExpect(jsonPath("$[0].dailyLimit").doesNotExist())
+                .andExpect(jsonPath("$[0].intervalMinutes").doesNotExist())
                 .andExpect(jsonPath("$[0].mode").value("CONFIRM"))
                 .andExpect(jsonPath("$[0].ready").value(true))
                 .andExpect(jsonPath("$[0].workFormats[1]").value("HYBRID"))
@@ -105,14 +140,15 @@ class ApiTest {
     @Test
     void createsRuleFromFormJson() throws Exception {
         when(ruleService.create(eq(user), eq(new RuleData("java", "java OR kotlin", "k8s", null, true, 1, "Москва", 200000, false,
-                "between1And3", List.of("REMOTE", "HYBRID"), List.of("FULL"), List.of("not_from_agency"), 7,
-                null, "hash", null, RuleMode.AUTO, 20, 30, false)))).thenReturn(view());
+                List.of("between1And3", "between3And6"), List.of("REMOTE", "HYBRID"), List.of("FULL"),
+                List.of("not_from_agency"), 7,
+                null, "hash", null, RuleMode.AUTO, false)))).thenReturn(view());
 
         mvc.perform(post("/api/rules").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"java","keywords":"java OR kotlin","skills":"k8s","titleOnly":true,"areaId":1,
                                  "areaName":"Москва","salaryFrom":200000,"onlyWithSalary":false,
-                                 "experience":"between1And3","workFormats":["REMOTE","HYBRID"],
+                                 "experiences":["between1And3","between3And6"],"workFormats":["REMOTE","HYBRID"],
                                  "employmentForms":["FULL"],"labels":["not_from_agency"],"periodDays":7,
                                  "resumeHash":"hash","mode":"AUTO","dailyLimit":20,
                                  "intervalMinutes":30,"skipWithTest":false}"""))
@@ -122,14 +158,14 @@ class ApiTest {
 
     @Test
     void validationErrorNamesTheField() throws Exception {
-        when(ruleService.create(any(), any())).thenThrow(new ValidationException("dailyLimit", "Лимит - от 1 до 100."));
+        when(ruleService.create(any(), any())).thenThrow(new ValidationException("name", "У правила должно быть название."));
 
         mvc.perform(post("/api/rules").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"x\",\"dailyLimit\":500}"))
+                        .content("{\"name\":\"\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("validation"))
-                .andExpect(jsonPath("$.field").value("dailyLimit"))
-                .andExpect(jsonPath("$.message").value("Лимит - от 1 до 100."));
+                .andExpect(jsonPath("$.field").value("name"))
+                .andExpect(jsonPath("$.message").value("У правила должно быть название."));
     }
 
     @Test

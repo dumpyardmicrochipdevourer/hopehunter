@@ -1,7 +1,7 @@
 package com.antonk404.hhbot.web;
 
 import com.antonk404.hhbot.domain.BotUser;
-import com.antonk404.hhbot.service.WhitelistService;
+import com.antonk404.hhbot.service.UserService;
 import com.antonk404.hhbot.telegram.access.BotContact;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,7 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 /**
- * Пускает в API только с подписью Telegram и только тех, кто в вайтлисте.
+ * Проверяет подпись Telegram и регистрирует пользователя по Telegram ID.
  *
  * <p>Подпись приходит в заголовке {@code Authorization: tma <initData>} - в заголовке, а не в
  * адресе, потому что адреса оседают в логах прокси, а эта строка работает как пропуск.
@@ -27,14 +27,14 @@ public class AuthInterceptor implements HandlerInterceptor {
     private static final String SCHEME = "tma ";
 
     private final InitDataValidator initDataValidator;
-    private final WhitelistService whitelistService;
+    private final UserService userService;
     private final BotContact botContact;
 
     public AuthInterceptor(
-            InitDataValidator initDataValidator, WhitelistService whitelistService, BotContact botContact) {
+            InitDataValidator initDataValidator, UserService userService, BotContact botContact) {
         this.botContact = botContact;
         this.initDataValidator = initDataValidator;
-        this.whitelistService = whitelistService;
+        this.userService = userService;
     }
 
     @Override
@@ -48,10 +48,11 @@ public class AuthInterceptor implements HandlerInterceptor {
             return reject(response, HttpServletResponse.SC_UNAUTHORIZED, "unauthorized",
                     "Открой приложение из Telegram заново.");
         }
-        Optional<BotUser> user = whitelistService.resolve(telegramUser.get().id(), telegramUser.get().username());
+        Optional<BotUser> user = userService.resolve(telegramUser.get().id(), telegramUser.get().username());
         if (user.isEmpty()) {
             return reject(response, HttpServletResponse.SC_FORBIDDEN, "forbidden", botContact.denied());
         }
+        // Mini App can create a profile, but Telegram must receive /start before notifications work.
         request.setAttribute(USER, user.get());
         return true;
     }

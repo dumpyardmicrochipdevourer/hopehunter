@@ -22,11 +22,13 @@ public class Bot implements LongPollingSingleThreadUpdateConsumer {
     private final List<CommandHandler> commandHandlers;
     private final List<CallbackHandler> callbackHandlers;
     private final DialogHandler dialogHandler;
+    private final UserUpdates updates;
 
     public Bot(
             List<CommandHandler> commandHandlers,
             List<CallbackHandler> callbackHandlers,
-            DialogHandler dialogHandler) {
+            DialogHandler dialogHandler, UserUpdates updates) {
+        this.updates = updates;
         this.commandHandlers = commandHandlers;
         this.callbackHandlers = callbackHandlers;
         this.dialogHandler = dialogHandler;
@@ -34,6 +36,12 @@ public class Bot implements LongPollingSingleThreadUpdateConsumer {
 
     @Override
     public void consume(Update update) {
+        var from = update.hasCallbackQuery() ? update.getCallbackQuery().getFrom()
+                : update.hasMessage() ? update.getMessage().getFrom() : null;
+        if (from != null) updates.submit(from.getId(), () -> handle(update));
+    }
+
+    private void handle(Update update) {
         try {
             if (update.hasCallbackQuery()) {
                 consumeCallback(update.getCallbackQuery());

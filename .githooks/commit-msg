@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Git strips comments and blank lines from ordinary commit messages.
+LC_ALL=C awk '
+/^#/ || /^[[:space:]]*$/ { next }
+{
+    lines++
+    if (length($0) > 72 || $0 !~ /^(feat|fix|refactor|docs|test|build|ci|chore|perf|revert): [a-z0-9][ -~]*$/ || $0 ~ /\.$/)
+        invalid = 1
+}
+END { exit (lines == 1 && !invalid ? 0 : 1) }
+' "$1" || {
+    printf '%s\n' 'Use one short line (max 72 chars), e.g. fix: resume list /applicant/my_resumes' >&2
+    exit 1
+}

@@ -112,6 +112,7 @@ public class RuleService {
         rule.setWorkFormats(codes("workFormats", data.workFormats(), ResponseRule.WORK_FORMATS));
         rule.setEmploymentForms(codes("employmentForms", data.employmentForms(), ResponseRule.EMPLOYMENT_FORMS));
         rule.setLabels(codes("labels", data.labels(), ResponseRule.LABELS));
+        rule.setExperiences(codes("experiences", data.experiences(), ResponseRule.EXPERIENCE_CODES));
         if (data.periodDays() != null && !ResponseRule.PERIODS_DAYS.contains(data.periodDays())) {
             throw new ValidationException("periodDays", "Срок - один из: " + ResponseRule.PERIODS_DAYS + " дней.");
         }
@@ -129,23 +130,6 @@ public class RuleService {
         rule.setSalaryFrom(data.salaryFrom());
         rule.setOnlyWithSalary(data.onlyWithSalary() == null || data.onlyWithSalary());
         rule.setSkipWithTest(data.skipWithTest() == null || data.skipWithTest());
-
-        int interval = data.intervalMinutes() == null ? ResponseRule.DEFAULT_INTERVAL_MINUTES : data.intervalMinutes();
-        if (!ResponseRule.INTERVALS_MINUTES.contains(interval)) {
-            throw new ValidationException("intervalMinutes", "Интервал - один из: " + ResponseRule.INTERVALS_MINUTES + " минут.");
-        }
-        rule.setIntervalMinutes(interval);
-
-        if (data.experience() != null && !ResponseRule.EXPERIENCE_CODES.contains(data.experience())) {
-            throw new ValidationException("experience", "Неизвестный код опыта.");
-        }
-        rule.setExperience(data.experience());
-
-        int limit = data.dailyLimit() == null ? ResponseRule.DEFAULT_DAILY_LIMIT : data.dailyLimit();
-        if (limit < 1 || limit > ResponseRule.MAX_DAILY_LIMIT) {
-            throw new ValidationException("dailyLimit", "Лимит - от 1 до " + ResponseRule.MAX_DAILY_LIMIT + " откликов в день.");
-        }
-        rule.setDailyLimit(limit);
 
         if (data.letterTemplateId() != null
                 && letterTemplateRepository.findByIdAndUserId(data.letterTemplateId(), user.getId()).isEmpty()) {

@@ -7,6 +7,7 @@ import com.antonk404.hhbot.domain.dto.HhResume;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
 import com.antonk404.hhbot.domain.dto.SearchQuery;
 import com.antonk404.hhbot.hh.exceptions.HhException;
+import com.antonk404.hhbot.hh.exceptions.HhCaptchaException;
 import com.antonk404.hhbot.hh.exceptions.HhSessionExpiredException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -144,9 +145,7 @@ public class HhWebGateway implements HhGateway {
                 params.add(new String[]{"only_with_salary", "true"});
             }
         }
-        if (query.experience() != null) {
-            params.add(new String[]{"experience", query.experience()});
-        }
+        query.experiences().forEach(code -> params.add(new String[]{"experience", code}));
         query.workFormats().forEach(format -> params.add(new String[]{"work_format", format}));
         query.employmentForms().forEach(form -> params.add(new String[]{"employment_form", form}));
         query.labels().forEach(label -> params.add(new String[]{"label", label}));
@@ -248,6 +247,9 @@ public class HhWebGateway implements HhGateway {
         }
         String body = response.body() == null ? "" : response.body();
         String lower = body.toLowerCase(Locale.ROOT);
+        // Тело каждого ответа на отклик - в лог: разбор ниже написан без живого hh, и сверять его
+        // с реальностью можно только по настоящим ответам.
+        logger.info("apply to vacancy {}: status {} body {}", vacancyId, response.status(), clip(body));
         if (lower.contains("captcha")) {
             return new ApplyResult.Captcha();
         }
@@ -257,11 +259,14 @@ public class HhWebGateway implements HhGateway {
         if (lower.contains("test-required") || lower.contains("test_required")) {
             return new ApplyResult.NeedsTest();
         }
+        boolean hasError = lower.contains("\"error\"");
+        // Успех проверяем раньше «already»: слово встречается и в теле удачного ответа, и принять
+        // из-за него настоящий отклик за дубль значит остаться без паузы и без счётчика.
+        if (response.status() >= 200 && response.status() < 300 && !hasError) {
+            return new ApplyResult.Sent();
+        }
         if (lower.contains("already")) {
             return new ApplyResult.AlreadyApplied();
-        }
-        if (response.status() == 200 && !lower.contains("\"error\"")) {
-            return new ApplyResult.Sent();
         }
         if (response.status() == 403) {
             // 403 без узнаваемой причины hh отдаёт и мёртвой сессии, и антиботу. Считаем худшим.
@@ -273,6 +278,26 @@ public class HhWebGateway implements HhGateway {
     }
 
     /**
+     * Капчу hh показывает не в теле ответа, а своей страницей: он уводит на неё редиректом.
+     * Поэтому смотрим адрес, на котором мы в итоге оказались, а не текст страницы - слово
+     * «captcha» встречается в скриптах и на совершенно обычной выдаче.
+     */
+    @Override
+    public Probe probe(HhSessionCookies cookies) {
+        Page page = follow(baseUrl + "/applicant/negotiations", headers(cookies));
+        if (redirectsToLogin(page.response()) || page.response().status() == 401) {
+            return Probe.EXPIRED;
+        }
+        if (page.url().toLowerCase(Locale.ROOT).contains("captcha") || page.response().status() == 403) {
+            return Probe.CAPTCHA;
+        }
+        if (page.response().status() != 200) {
+            throw new HhException("hh answered " + page.response().status());
+        }
+        return Probe.OK;
+    }
+
+    /**
      * GET со следованием редиректам внутри hh.
      *
      * <p>Транспорт редиректам не следует нарочно: редирект на страницу входа - признак мёртвой
@@ -281,12 +306,23 @@ public class HhWebGateway implements HhGateway {
      * останавливаемся и отдаём ответ как есть.
      */
     private HhHttp.Response getPage(String url, Map<String, String> headers) {
+        Page page = follow(url, headers);
+        if (page.url().toLowerCase(Locale.ROOT).contains("captcha") || page.response().status() == 403)
+            throw new HhCaptchaException();
+        return page.response();
+    }
+
+    /** Ответ вместе с адресом, на котором он получен: после редиректов это уже не тот url, что просили. */
+    private record Page(String url, HhHttp.Response response) {
+    }
+
+    private Page follow(String url, Map<String, String> headers) {
         String current = url;
         for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
             HhHttp.Response response = http.get(current, headers);
             boolean redirect = response.status() >= 300 && response.status() < 400 && response.location() != null;
             if (!redirect || redirectsToLogin(response)) {
-                return response;
+                return new Page(current, response);
             }
             URI next = URI.create(current).resolve(response.location());
             String host = next.getHost() == null ? "" : next.getHost();
@@ -329,6 +365,6 @@ public class HhWebGateway implements HhGateway {
     }
 
     private static String clip(String body) {
-        return body.length() <= 300 ? body : body.substring(0, 300) + "…";
+        return body.length() <= 600 ? body : body.substring(0, 600) + "…";
     }
 }

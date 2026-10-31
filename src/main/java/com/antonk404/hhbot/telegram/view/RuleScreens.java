@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.antonk404.hhbot.telegram.view.Kb.btn;
 import static com.antonk404.hhbot.telegram.view.Kb.field;
@@ -46,7 +47,6 @@ public class RuleScreens {
     /** Готовые пороги зарплаты: набрать «200000» с телефона дольше, чем нажать кнопку. */
     public static final List<Integer> SALARIES = List.of(100_000, 150_000, 200_000, 250_000, 300_000, 400_000);
 
-    public static final List<Integer> LIMITS = List.of(5, 10, 20, 30, 50);
 
     static {
         AREAS.put(1, "Москва");
@@ -99,7 +99,7 @@ public class RuleScreens {
         text.append('\n').append("✉️ ").append(Html.esc(letterName(rule))).append("\n\n");
 
         text.append(rule.getMode() == RuleMode.AUTO ? "⚡️ Откликаюсь сам" : "👀 Спрашиваю перед откликом");
-        text.append(" · сегодня ").append(rateLimiter.sentToday(rule)).append(" из ").append(rule.getDailyLimit());
+        text.append(" · сегодня ").append(rateLimiter.sentToday(rule));
         if (!rule.isReady()) {
             text.append("\n\n⚠️ Чтобы включить, нужны ключевые слова и резюме.");
         }
@@ -120,8 +120,8 @@ public class RuleScreens {
         if (rule.getSalaryFrom() != null) {
             out.append(" · от ").append(money(rule.getSalaryFrom())).append(" ₽");
         }
-        if (rule.getExperience() != null) {
-            out.append(" · опыт ").append(EXPERIENCE.get(rule.getExperience()));
+        if (!rule.getExperiences().isEmpty()) {
+            out.append(" · опыт ").append(experienceNames(rule));
         }
         if (rule.isRemoteOnly()) {
             out.append(" · удалёнка");
@@ -150,7 +150,7 @@ public class RuleScreens {
                         field("Удалёнка", rule.isRemoteOnly() ? "да" : "не важно", Cb.rule(id, "remote")))
                 .row(field("Зарплата", rule.getSalaryFrom() == null ? "любая" : "от " + money(rule.getSalaryFrom()),
                         Cb.rule(id, "sal")))
-                .row(field("Опыт", rule.getExperience() == null ? "любой" : EXPERIENCE.get(rule.getExperience()),
+                .row(field("Опыт", rule.getExperiences().isEmpty() ? "любой" : experienceNames(rule),
                         Cb.rule(id, "exp")))
                 .row(btn("➖ Минус-слова", Cb.rule(id, "minus")), btn("🚫 Стоп-лист", Cb.rule(id, "bl")))
                 .row(back(id))
@@ -176,10 +176,9 @@ public class RuleScreens {
                 + (auto
                 ? "⚡️ <b>Сам</b>"
                 : "👀 <b>С подтверждением</b>")
-                + "\n\nЛимит: " + rule.getDailyLimit() + " в день";
+                + "\n\nДо 100 откликов в сутки суммарно по всем правилам. Пауза 60–120 секунд.";
         return new Screen(text, Kb.of()
                 .row(btn(auto ? "Переключить: спрашивать меня" : "Переключить: откликаться самому", Cb.rule(id, "mode")))
-                .row(field("Лимит в день", String.valueOf(rule.getDailyLimit()), Cb.rule(id, "lim")))
                 .row(back(id))
                 .build());
     }
@@ -194,10 +193,13 @@ public class RuleScreens {
                 .build());
     }
 
+    /** Переключатели, а не выбор одного: «1–3» и «3–6» в одном правиле - обычное дело. */
     public Screen experience(ResponseRule rule) {
         Long id = rule.getId();
+        List<String> chosen = rule.getExperiences();
         Kb keyboard = Kb.of();
-        EXPERIENCE.forEach((code, name) -> keyboard.row(btn(name, Cb.rule(id, "exp:" + code))));
+        EXPERIENCE.forEach((code, name) ->
+                keyboard.row(btn((chosen.contains(code) ? "✅ " : "⬜️ ") + name, Cb.rule(id, "exp:" + code))));
         return new Screen("<b>Опыт в вакансии</b>", keyboard
                 .row(btn("Не важно", Cb.rule(id, "exp:any")))
                 .row(btn("« Назад", Cb.rule(id, SEARCH)))
@@ -218,18 +220,7 @@ public class RuleScreens {
                 .build());
     }
 
-    public Screen limit(ResponseRule rule) {
-        Long id = rule.getId();
-        return new Screen("<b>Лимит откликов в день</b>\n\nСейчас: " + rule.getDailyLimit() + ".", Kb.of()
-                .row(LIMITS.stream()
-                        .map(limit -> btn(String.valueOf(limit), Cb.rule(id, "lim:" + limit)))
-                        .toArray(InlineKeyboardButton[]::new))
-                .row(btn("Своё число…", Cb.rule(id, "limx")))
-                .row(btn("« Назад", Cb.rule(id, HOW)))
-                .build());
-    }
 
-    /** @param wizard выбор идёт в мастере создания - после него следующий шаг, а не возврат в настройки */
     public Screen resumes(ResponseRule rule, List<HhResume> resumes, boolean wizard) {
         Long id = rule.getId();
         Kb keyboard = Kb.of();
@@ -304,6 +295,10 @@ public class RuleScreens {
                 .row(btn("🔎 Изменить поиск", Cb.rule(rule.getId(), SEARCH)))
                 .row(back(rule.getId()))
                 .build());
+    }
+
+    private static String experienceNames(ResponseRule rule) {
+        return rule.getExperiences().stream().map(EXPERIENCE::get).collect(Collectors.joining(", "));
     }
 
     private static InlineKeyboardButton back(Long id) {

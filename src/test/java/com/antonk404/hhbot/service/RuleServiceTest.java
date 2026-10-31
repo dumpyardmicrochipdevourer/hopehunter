@@ -61,19 +61,19 @@ class RuleServiceTest {
 
     private static RuleData data(String name, String keywords, String resumeHash, Integer limit) {
         return new RuleData(name, keywords, null, " ", null, null, null, null, null, null, null, null, null, null,
-                null, resumeHash, null, null, limit, null, null);
+                null, resumeHash, null, null, null);
     }
 
     /** Правило с одним необычным полем - остальное как в {@link #data}. */
-    private static RuleData with(Integer salary, String experience, Long letterId, Integer interval) {
-        return new RuleData("java", "java", null, null, null, null, null, salary, null, experience, null, null,
-                null, null, null, "hash", letterId, null, null, interval, null);
+    private static RuleData with(Integer salary, List<String> experiences, Long letterId, Integer interval) {
+        return new RuleData("java", "java", null, null, null, null, null, salary, null, experiences, null, null,
+                null, null, null, "hash", letterId, null, null);
     }
 
     private static RuleData filters(String skills, List<String> formats, List<String> forms, List<String> labels,
                                     Integer period) {
         return new RuleData("java", "java", skills, null, null, null, null, null, null, null, formats, forms,
-                labels, period, null, "hash", null, null, null, null, null);
+                labels, period, null, "hash", null, null, null);
     }
 
     @Test
@@ -84,8 +84,6 @@ class RuleServiceTest {
         assertFalse(view.enabled());
         assertEquals(RuleMode.CONFIRM, view.mode());
         assertTrue(view.titleOnly());
-        assertEquals(30, view.dailyLimit());
-        assertEquals(15, view.intervalMinutes());
         assertTrue(view.onlyWithSalary());
         assertTrue(view.skipWithTest());
         assertNull(view.minusWords());
@@ -107,46 +105,34 @@ class RuleServiceTest {
 
         verify(account, never()).profile(any());
         assertEquals("java 2", existing.getName());
-        assertEquals(10, existing.getDailyLimit());
     }
 
     @Test
     void rejectsOutOfRangeValuesByField() {
-        assertEquals("dailyLimit", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, data("java", "java", "hash", 201))).getField());
         assertEquals("name", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, data(" ", "java", "hash", 10))).getField());
-        assertEquals("experience", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, with(null, "tenYears", null, null))).getField());
+        assertEquals("experiences", assertThrows(ValidationException.class,
+                () -> service.update(user, 7L, with(null, List.of("tenYears"), null, null))).getField());
         assertEquals("salaryFrom", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, with(-5, null, null, null))).getField());
     }
 
     @Test
-    void limitGoesUpToTwoHundred() {
-        service.update(user, 7L, data("java", "java", "hash", 200));
-
-        assertEquals(200, existing.getDailyLimit());
-    }
-
-    @Test
-    void intervalMustBeOneOfTheOffered() {
-        assertEquals("intervalMinutes", assertThrows(ValidationException.class,
-                () -> service.update(user, 7L, with(null, null, null, 1))).getField());
-
-        service.update(user, 7L, with(null, null, null, 60));
-        assertEquals(60, existing.getIntervalMinutes());
+    void legacySchedulingFieldsAreIgnored() {
+        service.update(user, 7L, data("java", "java", "hash", 500));
+        service.update(user, 7L, with(null, null, null, 1));
+        assertEquals("java", existing.getKeywords());
     }
 
     @Test
     void areaKeepsItsNameAndClearsWithIt() {
         service.update(user, 7L, new RuleData("java", "java", null, null, null, 88, " Казань ", null, null, null,
-                null, null, null, null, null, "hash", null, null, null, null, null));
+                null, null, null, null, null, "hash", null, null, null));
         assertEquals(88, existing.getAreaId());
         assertEquals("Казань", existing.getAreaName());
 
         service.update(user, 7L, new RuleData("java", "java", null, null, null, null, "Казань", null, null, null,
-                null, null, null, null, null, "hash", null, null, null, null, null));
+                null, null, null, null, null, "hash", null, null, null));
         assertNull(existing.getAreaName());
     }
 
@@ -175,6 +161,30 @@ class RuleServiceTest {
                 () -> service.update(user, 7L, filters(null, null, null, List.of("with_snacks"), null))).getField());
         assertEquals("periodDays", assertThrows(ValidationException.class,
                 () -> service.update(user, 7L, filters(null, null, null, null, 5))).getField());
+    }
+
+    /** В одной вакансии вилка опыта бывает шире одного диапазона - правило должно уметь оба. */
+    @Test
+    void experienceKeepsSeveralRangesInHhOrder() {
+        service.update(user, 7L, with(null, List.of("between3And6", "between1And3"), null, null));
+
+        assertEquals(List.of("between1And3", "between3And6"), existing.getExperiences());
+
+        service.update(user, 7L, with(null, null, null, null));
+        assertEquals(List.of(), existing.getExperiences());
+    }
+
+    /** Правила, созданные когда опыт был одним кодом, читаются по старой колонке. */
+    @Test
+    void legacySingleExperienceReadsAsOneRange() {
+        ResponseRule legacy = new ResponseRule(1L, "old");
+        ReflectionTestUtils.setField(legacy, "experience", "between1And3");
+
+        assertEquals(List.of("between1And3"), legacy.getExperiences());
+
+        legacy.setExperiences(List.of("between1And3", "moreThan6"));
+        assertEquals(List.of("between1And3", "moreThan6"), legacy.getExperiences());
+        assertNull(ReflectionTestUtils.getField(legacy, "experience"));
     }
 
     /** Правила, созданные когда формат был одним флажком «только удалёнка», должны читаться по-прежнему. */

@@ -10,6 +10,7 @@ import com.antonk404.hhbot.domain.dto.StatsView;
 import com.antonk404.hhbot.domain.repo.ApplicationLogRepository;
 import com.antonk404.hhbot.domain.repo.ResponseRuleRepository;
 import com.antonk404.hhbot.service.util.RateLimiter;
+import com.antonk404.hhbot.service.util.RateLimiter.Stop;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -46,9 +47,11 @@ public class DashboardService {
     public MeView me(BotUser user) {
         List<ResponseRule> rules = responseRuleRepository.findByUserIdOrderByIdAsc(user.getId());
         int enabled = (int) rules.stream().filter(ResponseRule::isEnabled).count();
-        int dailyLimit = rules.stream().filter(ResponseRule::isEnabled).mapToInt(ResponseRule::getDailyLimit).sum();
-        return new MeView(user.getUsername(), user.isPaused(), rateLimiter.isStopped(user.getId()),
-                account(user), rules.size(), enabled, sentToday(user), dailyLimit);
+        int dailyLimit = RateLimiter.DAILY_LIMIT;
+        Optional<Stop> stop = rateLimiter.stop(user.getId());
+        return new MeView(user.getUsername(), user.isPaused(), stop.isPresent(),
+                stop.map(Stop::name).orElse(null),
+                account(user), rules.size(), enabled, sentToday(user), dailyLimit, user.isNotifyApplied());
     }
 
     public AccountView account(BotUser user) {

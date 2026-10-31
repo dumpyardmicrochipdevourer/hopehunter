@@ -53,8 +53,6 @@
     return d.toDateString() === now.toDateString() ? `сегодня, ${time}` : `${pad(d.getDate())}.${pad(d.getMonth() + 1)}, ${time}`;
   };
 
-  const interval = (m) => (m < 60 ? `${m} минут` : m === 60 ? '1 час' : `${m / 60} часа`);
-
   const haptic = (kind) => { try { tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred(kind || 'light'); } catch (_) { /* старый клиент */ } };
 
   let toastTimer;
@@ -296,13 +294,15 @@
       return;
     }
 
-    const status = expired ? 'остановлен' : me.paused ? 'пауза' : me.stopped ? 'до завтра' : me.rulesEnabled === 0 ? 'выключен' : 'работаю';
+    const status = expired ? 'остановлен' : me.paused ? 'пауза' : me.stopped ? 'до завтра' : me.rulesEnabled === 0 ? 'выключен' : me.sentToday >= me.dailyLimit ? 'продолжу завтра' : 'работаю';
     const percent = me.dailyLimit ? Math.min(100, Math.round((me.sentToday / me.dailyLimit) * 100)) : 0;
     const dim = expired ? ' dim' : '';
 
     paint(`${brand}<div class="stack"><div class="shell">
       ${expired ? `<div class="alert"><div><h2>hh отключился</h2><p>сессия истекла</p></div><a class="btn small" href="#/connect">переподключить</a></div>` : ''}
-      ${me.stopped && !expired ? `<div class="alert"><div><h2>стоп до завтра</h2><p>капча или суточный лимит hh</p></div></div>` : ''}
+      ${me.stopped && !expired ? (me.stopReason === 'CAPTCHA'
+        ? `<div class="alert"><div><h2>hh показал капчу</h2><p>пройди её на hh.ru</p></div><button type="button" class="btn small" data-act="captcha">прошёл</button></div>`
+        : `<div class="alert"><div><h2>стоп до завтра</h2><p>hh больше не принимает отклики сегодня</p></div></div>`) : ''}
       <div class="status"><span><small>статус</small><strong>${status}</strong></span>${switchBtn(!me.paused && !expired, 'Работа бота', 'pause', expired ? ' disabled' : '')}</div>
       <div class="block">
         <a class="kv${dim}" href="#/connect"><span>аккаунт</span><span>${esc(me.account.ownerName || (connected ? 'подключён' : 'не подключён'))}</span></a>
@@ -312,8 +312,29 @@
         <div class="kv${dim}"><span>отклики сегодня</span><span>${me.sentToday}${me.dailyLimit ? ` из ${me.dailyLimit}` : ''}</span></div>
         <div class="progress-pad"><div class="progress"><i style="width:${percent}%"></i></div></div>
       </div>
+      <div class="toggle-row"><span>уведомлять об откликах</span>${switchBtn(me.notifyApplied, 'Уведомлять об откликах', 'notify')}</div>
       ${statsData.recent.length ? `<div class="section-head"><span>последние отклики</span><a href="#/stats">все</a></div><div class="block">${logRows(statsData.recent.slice(0, 5))}</div>` : ''}
     </div></div>`, { nav: 'home' });
+
+    actions.notify = async (el) => {
+      const applied = el.getAttribute('aria-checked') !== 'true';
+      el.setAttribute('aria-checked', String(applied));
+      haptic();
+      try { await api('PUT', '/me/notifications', { applied }); } catch (e) { toast(e.message, true); el.setAttribute('aria-checked', String(!applied)); }
+    };
+
+    // Капчу человек проходит на hh сам; кнопка только спрашивает hh, пускает ли он снова.
+    actions.captcha = async (el) => {
+      el.disabled = true;
+      try {
+        await api('POST', '/me/captcha');
+        haptic('medium');
+      } catch (e) {
+        toast(e.message, true);
+      }
+      el.disabled = false;
+      if (!stale(seq)) home(seq).catch(() => {});
+    };
 
     actions.pause = async (el) => {
       const paused = el.getAttribute('aria-checked') === 'true';
@@ -428,9 +449,8 @@
       return paint(`${head(false)}<div class="empty"><h2>правил нет</h2><a class="btn inline" href="#/rules/new">новое правило</a></div>`, { nav: 'rules' });
     }
     paint(`${head(true)}<div class="stack">${list.map((rule) => {
-      const percent = Math.min(100, Math.round((rule.sentToday / rule.dailyLimit) * 100));
       return `<div class="item"><div class="item-head"><a class="item-title" href="#/rules/${rule.id}">${esc(rule.name)}</a>${switchBtn(rule.enabled, rule.name, 'toggle', ` data-id="${rule.id}"`)}</div>
-        <div class="item-meta"><span class="item-sub">${rule.sentToday} из ${rule.dailyLimit} сегодня</span><div class="progress"><i style="width:${percent}%"></i></div></div></div>`;
+        <div class="item-meta"><span class="item-sub">${rule.sentToday} сегодня</span></div></div>`;
     }).join('')}</div>`, { nav: 'rules' });
 
     actions.toggle = async (el) => {
@@ -448,12 +468,12 @@
 
   const EMPTY_RULE = {
     name: '', keywords: '', skills: '', minusWords: '', titleOnly: true, areaId: null, areaName: null, salaryFrom: null,
-    onlyWithSalary: true, experience: null, workFormats: [], employmentForms: [], labels: [], periodDays: null,
+    onlyWithSalary: true, experiences: [], workFormats: [], employmentForms: [], labels: [], periodDays: null,
     companyBlacklist: '', resumeHash: null,
-    resumeTitle: null, letterTemplateId: null, mode: 'CONFIRM', dailyLimit: 30, intervalMinutes: 15, skipWithTest: true,
+    resumeTitle: null, letterTemplateId: null, mode: 'CONFIRM', skipWithTest: true,
   };
   const RULE_FIELDS = ['name', 'keywords', 'skills', 'minusWords', 'titleOnly', 'areaId', 'areaName', 'salaryFrom', 'onlyWithSalary',
-    'experience', 'workFormats', 'employmentForms', 'labels', 'periodDays', 'companyBlacklist', 'resumeHash', 'letterTemplateId', 'mode', 'dailyLimit', 'intervalMinutes', 'skipWithTest'];
+    'experiences', 'workFormats', 'employmentForms', 'labels', 'periodDays', 'companyBlacklist', 'resumeHash', 'letterTemplateId', 'mode', 'skipWithTest'];
   const payload = (rule) => Object.fromEntries(RULE_FIELDS.map((key) => [key, rule[key] === '' ? null : rule[key]]));
 
   async function ruleForm(seq, id) {
@@ -461,7 +481,7 @@
     const [info, letterList, loaded] = await Promise.all([meta(), api('GET', '/letters'), id ? api('GET', `/rules/${id}`) : null]);
     if (stale(seq)) return;
 
-    const rule = Object.assign({}, EMPTY_RULE, loaded || { dailyLimit: info.defaultDailyLimit });
+    const rule = Object.assign({}, EMPTY_RULE, loaded || {});
     for (const key of ['minusWords', 'companyBlacklist', 'keywords', 'skills']) rule[key] = rule[key] || '';
     let saved = JSON.stringify(payload(rule));
     let invalid = null;   // {field, message}
@@ -470,7 +490,6 @@
 
     const dirty = () => JSON.stringify(payload(rule)) !== saved;
     const letterName = () => (letterList.find((l) => l.id === rule.letterTemplateId) || {}).name || 'без письма';
-    const experienceName = () => (info.experience.find((o) => o.code === rule.experience) || {}).label || 'любой';
     /** Подписи выбранных кодов через запятую; если ничего не выбрано - слово «любой». */
     const chosen = (options, codes, none) =>
       options.filter((o) => codes.includes(o.code)).map((o) => o.label).join(', ') || none;
@@ -509,7 +528,7 @@
           <span class="hint">например: <code>kubernetes OR k8s</code></span>
           ${pick('workFormats', 'формат работы', chosen(info.workFormats, rule.workFormats, 'любой'), 'formats')}
           ${pick('employmentForms', 'занятость', chosen(info.employmentForms, rule.employmentForms, 'любая'), 'employment')}
-          ${pick('experience', 'опыт', experienceName(), 'experience')}
+          ${pick('experiences', 'опыт', chosen(info.experience, rule.experiences, 'любой'), 'experience')}
           ${pick('periodDays', 'свежесть', period(rule.periodDays), 'period')}
           ${pick('labels', 'ещё фильтры', rule.labels.length ? `выбрано: ${rule.labels.length}` : 'нет', 'labels')}
           ${input('minusWords', 'минус-слова')}
@@ -521,9 +540,8 @@
           ${pick('letterTemplateId', 'письмо', letterName(), 'letter')}
           <span class="label">как откликаться</span>
           ${pick('mode', 'режим', rule.mode === 'AUTO' ? 'откликаться самому' : 'спрашивать меня', 'mode')}
-          ${pick('dailyLimit', 'лимит в день', String(rule.dailyLimit), 'limit')}
-          ${pick('intervalMinutes', 'интервал', interval(rule.intervalMinutes), 'interval')}
           ${toggle('skipWithTest', 'пропускать с тестом')}
+          <span class="hint">до 100 откликов в сутки по всем правилам · пауза 60–120 секунд · круглосуточно</span>
           ${invalid && !invalid.field ? `<span class="field-error">${esc(invalid.message)}</span>` : ''}
         </div>
         <div class="actions">
@@ -623,12 +641,7 @@
         .concat(info.periodsDays.map((d) => ({ label: period(d), value: d, checked: rule.periodDays === d }))),
       onPick: (option) => { rule.periodDays = option.value; draw(); },
     });
-    actions.experience = () => openSheet({
-      title: 'опыт в вакансии',
-      options: [{ label: 'любой', value: null, checked: !rule.experience }]
-        .concat(info.experience.map((o) => ({ label: o.label, value: o.code, checked: rule.experience === o.code }))),
-      onPick: (option) => { rule.experience = option.value; draw(); },
-    });
+    actions.experience = () => multiPick('опыт в вакансии', 'можно несколько', info.experience, 'experiences');
     actions.letter = () => openSheet({
       title: 'письмо',
       text: letterList.length ? null : 'писем нет - вкладка «письма»',
@@ -643,18 +656,6 @@
         { label: 'откликаться самому', sub: 'отклик сразу', value: 'AUTO', checked: rule.mode === 'AUTO' },
       ],
       onPick: (option) => { rule.mode = option.value; draw(); },
-    });
-    actions.limit = () => openSheet({
-      title: 'лимит в день',
-      text: 'максимум hh - 200 в сутки',
-      options: [10, 20, 30, 50, 100, 200].filter((n) => n <= info.maxDailyLimit)
-        .map((n) => ({ label: String(n), value: n, checked: rule.dailyLimit === n })),
-      onPick: (option) => { rule.dailyLimit = option.value; draw(); },
-    });
-    actions.interval = () => openSheet({
-      title: 'интервал проверки',
-      options: info.intervalsMinutes.map((m) => ({ label: interval(m), value: m, checked: rule.intervalMinutes === m })),
-      onPick: (option) => { rule.intervalMinutes = option.value; draw(); },
     });
     actions.resume = async () => {
       try {

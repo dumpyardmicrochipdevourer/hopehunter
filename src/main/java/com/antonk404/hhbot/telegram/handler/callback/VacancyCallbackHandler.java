@@ -6,6 +6,7 @@ import com.antonk404.hhbot.domain.dto.ApplyResult;
 import com.antonk404.hhbot.domain.dto.HhVacancy;
 import com.antonk404.hhbot.domain.repo.ResponseRuleRepository;
 import com.antonk404.hhbot.service.ApplyService;
+import com.antonk404.hhbot.service.util.RateLimiter;
 import com.antonk404.hhbot.telegram.TelegramReplies;
 import com.antonk404.hhbot.telegram.access.Access;
 import com.antonk404.hhbot.telegram.state.VacancyCards;
@@ -109,16 +110,17 @@ public class VacancyCallbackHandler implements CallbackHandler {
             // откликнуться можно тем же нажатием.
             case ApplyResult.LimitReached limit -> {
                 replies.answerCallback(press.queryId(), null);
-                vacancyPresenter.stopped(user, "hh больше не принимает отклики сегодня");
+                vacancyPresenter.stopped(user, RateLimiter.Stop.HH_LIMIT);
             }
             case ApplyResult.Captcha captcha -> {
                 replies.answerCallback(press.queryId(), null);
-                vacancyPresenter.stopped(user, "hh показал капчу");
+                vacancyPresenter.stopped(user, RateLimiter.Stop.CAPTCHA);
             }
             case ApplyResult.SessionExpired expired -> {
                 replies.answerCallback(press.queryId(), null);
                 vacancyPresenter.sessionExpired(user);
             }
+            case ApplyResult.Deferred deferred -> replies.alert(press.queryId(), deferred.reason());
             case ApplyResult.Failed failed ->
                     replies.alert(press.queryId(), "Не получилось: " + failed.reason() + ". Попробуй ещё раз чуть позже.");
         }

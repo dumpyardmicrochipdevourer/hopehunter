@@ -113,9 +113,6 @@ public class RuleCallbackHandler implements CallbackHandler {
                     "<b>Номер региона hh</b>\n\nиз адреса поиска: <code>area=88</code>");
             case "salx" -> ask(press, rule, Step.RULE_SALARY, RuleScreens.SEARCH,
                     "<b>Зарплата от</b>, число");
-            case "limx" -> ask(press, rule, Step.RULE_LIMIT, RuleScreens.HOW,
-                    "<b>Лимит в день</b>, 1–" + ResponseRule.MAX_DAILY_LIMIT);
-
             case "area" -> {
                 if (arg.isEmpty()) {
                     menu.edit(press, screens.area(rule));
@@ -128,9 +125,13 @@ public class RuleCallbackHandler implements CallbackHandler {
             case "exp" -> {
                 if (arg.isEmpty()) {
                     menu.edit(press, screens.experience(rule));
-                } else if (arg.equals("any") || RuleScreens.EXPERIENCE.containsKey(arg)) {
-                    rule.setExperience(arg.equals("any") ? null : arg);
+                } else if (arg.equals("any")) {
+                    rule.setExperiences(List.of());
                     save(press, rule, screens.search(rule));
+                } else if (RuleScreens.EXPERIENCE.containsKey(arg)) {
+                    // Диапазонов можно несколько, поэтому экран остаётся открытым до «Назад».
+                    rule.setExperiences(toggled(rule.getExperiences(), arg));
+                    save(press, rule, screens.experience(rule));
                 }
             }
             case "sal" -> {
@@ -140,15 +141,6 @@ public class RuleCallbackHandler implements CallbackHandler {
                     int amount = parseLong(arg).orElse(0L).intValue();
                     rule.setSalaryFrom(amount <= 0 ? null : amount);
                     save(press, rule, screens.search(rule));
-                }
-            }
-            case "lim" -> {
-                if (arg.isEmpty()) {
-                    menu.edit(press, screens.limit(rule));
-                } else {
-                    // Потолок тот же, что при вводе руками: data приходит от клиента.
-                    rule.setDailyLimit((int) Math.clamp(parseLong(arg).orElse(30L), 1L, (long) ResponseRule.MAX_DAILY_LIMIT));
-                    save(press, rule, screens.how(rule));
                 }
             }
             case "remote" -> {
@@ -290,6 +282,13 @@ public class RuleCallbackHandler implements CallbackHandler {
     private void save(Access.Press press, ResponseRule rule, Screen next) {
         responseRuleRepository.save(rule);
         menu.edit(press, next, "Сохранил");
+    }
+
+    /** Код включается или выключается; порядок остаётся тем, в каком коды знает hh. */
+    private static List<String> toggled(List<String> chosen, String code) {
+        return ResponseRule.EXPERIENCE_CODES.stream()
+                .filter(candidate -> chosen.contains(candidate) != candidate.equals(code))
+                .toList();
     }
 
     private static Optional<Long> parseLong(String value) {

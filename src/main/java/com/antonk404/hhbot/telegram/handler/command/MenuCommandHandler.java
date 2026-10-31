@@ -1,10 +1,9 @@
 package com.antonk404.hhbot.telegram.handler.command;
 
 import com.antonk404.hhbot.domain.BotUser;
-import com.antonk404.hhbot.service.WhitelistService;
+import com.antonk404.hhbot.service.UserService;
 import com.antonk404.hhbot.telegram.TelegramReplies;
 import com.antonk404.hhbot.telegram.access.Access;
-import com.antonk404.hhbot.telegram.access.AdminAccess;
 import com.antonk404.hhbot.telegram.access.BotContact;
 import com.antonk404.hhbot.telegram.state.DialogState;
 import com.antonk404.hhbot.telegram.state.MenuMessage;
@@ -33,8 +32,7 @@ public class MenuCommandHandler implements CommandHandler {
     private static final List<String> COMMANDS = List.of("/start", MENU, RULES, STATS, PAUSE, CANCEL);
 
     private final Access access;
-    private final AdminAccess adminAccess;
-    private final WhitelistService whitelistService;
+    private final UserService userService;
     private final DialogState dialogState;
     private final MenuMessage menu;
     private final MenuScreens menuScreens;
@@ -44,8 +42,7 @@ public class MenuCommandHandler implements CommandHandler {
 
     public MenuCommandHandler(
             Access access,
-            AdminAccess adminAccess,
-            WhitelistService whitelistService,
+            UserService userService,
             DialogState dialogState,
             MenuMessage menu,
             MenuScreens menuScreens,
@@ -54,8 +51,7 @@ public class MenuCommandHandler implements CommandHandler {
             BotContact botContact) {
         this.botContact = botContact;
         this.access = access;
-        this.adminAccess = adminAccess;
-        this.whitelistService = whitelistService;
+        this.userService = userService;
         this.dialogState = dialogState;
         this.menu = menu;
         this.menuScreens = menuScreens;
@@ -70,11 +66,6 @@ public class MenuCommandHandler implements CommandHandler {
 
     @Override
     public void handle(Message message) {
-        String username = message.getFrom().getUserName();
-        // Админ из конфига попадает в вайтлист сам: иначе первому человеку некому выдать доступ.
-        if (adminAccess.isAdmin(username)) {
-            whitelistService.add(username, username);
-        }
         Optional<BotUser> found = access.user(message);
         if (found.isEmpty()) {
             replies.text(message.getChatId(), botContact.denied());
@@ -88,7 +79,7 @@ public class MenuCommandHandler implements CommandHandler {
             case RULES -> ruleScreens.list(user);
             case STATS -> menuScreens.stats(user);
             case PAUSE -> {
-                whitelistService.setPaused(user, !user.isPaused());
+                userService.setPaused(user, !user.isPaused());
                 yield menuScreens.home(user);
             }
             default -> menuScreens.home(user);

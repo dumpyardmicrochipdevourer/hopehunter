@@ -63,7 +63,7 @@ class ScreensTest {
         rule.setMinusWords("senior, <lead>");
         rule.setCompanyBlacklist("A&B");
         rule.setSalaryFrom(200_000);
-        rule.setExperience("between1And3");
+        rule.setExperiences(List.of("between1And3", "between3And6"));
         rule.setArea(88, null);
         rule.setResume("a".repeat(38), NASTY);
         rule.setLetterTemplateId(5L);
@@ -101,7 +101,7 @@ class ScreensTest {
         for (Screen screen : List.of(
                 ruleScreens.list(user), ruleScreens.rule(rule), ruleScreens.search(rule), ruleScreens.reply(rule),
                 ruleScreens.how(rule), ruleScreens.area(rule), ruleScreens.experience(rule), ruleScreens.salary(rule),
-                ruleScreens.limit(rule), ruleScreens.resumes(rule, resumes, true), ruleScreens.resumes(rule, resumes, false),
+                ruleScreens.resumes(rule, resumes, true), ruleScreens.resumes(rule, resumes, false),
                 ruleScreens.letters(user, rule), ruleScreens.wizardMode(rule), ruleScreens.wizardDone(rule),
                 ruleScreens.delete(rule), ruleScreens.preview(rule, List.of(vacancy, vacancy), 8),
                 VacancyView.card(NASTY, vacancy, NASTY))) {
@@ -117,6 +117,7 @@ class ScreensTest {
         for (Screen screen : List.of(
                 menuScreens.home(user), menuScreens.stats(user),
                 MenuScreens.retry("Нужно число, например <code>88</code>.", "r:1:gs"),
+                MenuScreens.captcha("hh показал капчу"),
                 MenuScreens.problem("hh не отвечает.", "Ещё раз", "acc:resumes", "acc:show"),
                 accountScreens.account(user), accountScreens.connectIntro(),
                 accountScreens.connectSteps("chrome"), accountScreens.connectSteps("firefox"),
@@ -170,6 +171,6 @@ class ScreensTest {
 
         assertTrue(ruleScreens.rule(bare).text().contains("любой регион\n"));
         assertTrue(ruleScreens.rule(rule).text()
-                .contains("регион 88 · от 200 000 ₽ · опыт 1–3 года · минус-слов: 2 · компаний в стоп-листе: 1"));
+                .contains("регион 88 · от 200 000 ₽ · опыт 1–3 года, 3–6 лет · минус-слов: 2 · компаний в стоп-листе: 1"));
     }
 }
